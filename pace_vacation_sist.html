@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pace Vacation — Sistema Financeiro</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;font-size:14px;color:#222;background:#f5f5f5}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #ddd;background:#fff;flex-wrap:wrap;gap:6px;position:sticky;top:0;z-index:100}
+.logo-bar{display:flex;align-items:center;gap:8px;font-weight:600;font-size:15px;color:#185FA5}
+.logo-img{height:30px;width:auto;object-fit:contain}
+.nav{display:flex;gap:3px;flex-wrap:wrap}
+.nb{padding:6px 10px;border:1px solid transparent;border-radius:8px;cursor:pointer;font-size:11px;background:transparent;color:#666}
+.nb:hover,.nb.active{background:#f0f0f0;color:#222;border-color:#ddd}
+.content{padding:14px;max-width:1100px;margin:0 auto}
+.section{display:none}.section.active{display:block}
+.card{background:#fff;border:1px solid #ddd;border-radius:12px;padding:16px;margin-bottom:14px}
+.ct{font-size:12px;font-weight:600;color:#666;margin-bottom:12px;display:flex;align-items:center;gap:5px;text-transform:uppercase;letter-spacing:.3px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.field{display:flex;flex-direction:column;gap:3px}
+.field label{font-size:11px;color:#666;font-weight:500}
+.field input,.field select,.field textarea{padding:7px 10px;border:1px solid #ccc;border-radius:8px;font-size:13px;background:#fff;color:#222;width:100%}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:#378ADD}
+.field textarea{resize:vertical;min-height:52px}
+.mc{background:#f8f8f8;border-radius:10px;padding:12px 14px;border:1px solid #eee}
+.mc-lbl{font-size:11px;color:#666;margin-bottom:4px}
+.mc-val{font-size:20px;font-weight:600}
+.green{color:#1D9E75}.blue{color:#185FA5}.amber{color:#BA7517}.red{color:#E24B4A}.purple{color:#534AB7}
+.bp{padding:8px 16px;border-radius:8px;border:none;background:#378ADD;color:#fff;font-size:13px;font-weight:600;cursor:pointer}
+.bp:hover{background:#185FA5}
+.bs{padding:8px 16px;border-radius:8px;border:1px solid #ccc;background:#fff;color:#222;font-size:13px;cursor:pointer}
+.bs:hover{background:#f5f5f5}
+.bd{padding:4px 8px;border-radius:6px;border:none;background:#fdd;color:#700;font-size:11px;cursor:pointer}
+.be{padding:4px 8px;border-radius:6px;border:none;background:#ddf;color:#005;font-size:11px;cursor:pointer}
+.br{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center}
+.tabs{display:flex;border:1px solid #ddd;border-radius:8px;overflow:hidden;margin-bottom:14px}
+.tab{flex:1;padding:8px;text-align:center;cursor:pointer;font-size:12px;border:none;background:#fff;color:#666}
+.tab.active{background:#f0f0f0;color:#222;font-weight:600}
+.tbl-wrap{overflow-x:auto}
+table.dt{width:100%;border-collapse:collapse;font-size:12px}
+table.dt th{text-align:left;padding:8px;font-weight:600;font-size:11px;color:#666;border-bottom:1px solid #eee;background:#fafafa}
+table.dt td{padding:8px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+table.dt tr:hover td{background:#fafafa}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600}
+.b-aereo{background:#E6F1FB;color:#0C447C}.b-hospedagem{background:#EAF3DE;color:#27500A}.b-transfer{background:#FAEEDA;color:#633806}
+.b-pago{background:#EAF3DE;color:#27500A}.b-pendente{background:#FAEEDA;color:#633806}.b-parcial{background:#FBEAF0;color:#72243E}
+.b-fixa{background:#EEEDFE;color:#3C3489}.b-pontual{background:#FAEEDA;color:#633806}
+.sep{height:1px;background:#eee;margin:12px 0}
+.empty{text-align:center;padding:32px;color:#aaa;font-size:13px}
+.alert{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:10px}
+.alert-s{background:#EAF3DE;color:#27500A;border:1px solid #c0dd97}
+.alert-i{background:#E6F1FB;color:#0C447C;border:1px solid #b5d4f4}
+.alert-e{background:#FCEBEB;color:#501313;border:1px solid #f7c1c1}
+.ac-wrap{position:relative}
+.ac-list{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #ccc;border-radius:8px;max-height:200px;overflow-y:auto;z-index:999;box-shadow:0 4px 16px rgba(0,0,0,.12)}
+.ac-item{padding:8px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid #f0f0f0}
+.ac-item:hover{background:#f5f5f5}
+.ac-name{font-weight:600;margin-bottom:2px}
+.ac-detail{font-size:11px;color:#888}
+.upload-area{border:2px dashed #ccc;border-radius:8px;padding:16px;text-align:center;cursor:pointer;font-size:12px;color:#888}
+.upload-area:hover{background:#f9f9f9;border-color:#999}
+.logo-preview{max-height:54px;max-width:150px;object-fit:contain;margin-top:8px}
+.info-box{background:#f0f8ff;border-radius:8px;padding:10px 14px;font-size:12px;border-left:3px solid #378ADD;margin-bottom:10px;color:#0C447C}
+.calc-box{background:#f0faf5;border-radius:8px;padding:12px 14px;font-size:12px;border-left:3px solid #1D9E75;margin-top:10px}
+.calc-row{display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:#444}
+.calc-row.total{font-weight:600;border-top:1px solid #ccc;margin-top:6px;padding-top:8px;font-size:13px;color:#222}
+.pgto-box{background:#f8f8f8;border-radius:10px;padding:14px;margin-top:12px;border:1px solid #eee}
+.pgto-title{font-size:12px;font-weight:600;color:#666;margin-bottom:10px;text-transform:uppercase;letter-spacing:.3px}
+.ptoggle{display:flex;border:1px solid #ddd;border-radius:8px;overflow:hidden;margin-bottom:12px}
+.ptog{flex:1;padding:8px;text-align:center;cursor:pointer;font-size:12px;border:none;background:#fff;color:#666}
+.ptog.active{background:#378ADD;color:#fff;font-weight:600}
+.ptog:disabled{opacity:.4;cursor:not-allowed}
+.parcelas-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px}
+.parcela-btn{padding:8px 4px;border-radius:8px;border:1px solid #ddd;background:#fff;color:#222;font-size:12px;cursor:pointer;text-align:center}
+.parcela-btn:hover{background:#f0f0f0}
+.parcela-btn.selected{background:#378ADD;color:#fff;border-color:#378ADD;font-weight:600}
+.resumo-pgto{background:#fff;border-radius:8px;padding:10px 14px;font-size:12px;border:1px solid #eee}
+.resumo-row{display:flex;justify-content:space-between;padding:3px 0}
+.resumo-row.dest{font-weight:600;color:#185FA5;border-top:1px solid #eee;padding-top:8px;margin-top:6px;font-size:13px}
+.pax-card{background:#fff;border:1px solid #eee;border-radius:10px;padding:14px;margin-bottom:10px}
+.pax-avatar{width:38px;height:38px;border-radius:50%;background:#E6F1FB;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px;color:#185FA5;flex-shrink:0}
+.pax-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:10px}
+.pax-field{background:#f8f8f8;border-radius:6px;padding:5px 9px}
+.pax-field-label{font-size:10px;color:#888}
+.pax-field-val{font-weight:500;font-size:12px;margin-top:1px}
+.autofilled{border-color:#1D9E75!important;background:rgba(29,158,117,.06)!important}
+.loading{text-align:center;padding:32px;color:#888;font-size:13px}
+.spinner{display:inline-block;width:20px;height:20px;border:2px solid #ddd;border-top-color:#378ADD;border-radius:50%;animation:spin .7s linear infinite;margin-right:8px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* DRE e Fatura */
+.dre{font-family:Arial,sans-serif;font-size:12px;color:#000;background:#fff;padding:20px;max-width:700px;margin:0 auto}
+.dre h1{font-size:17px;font-weight:700;text-align:center;margin-bottom:2px}
+.dre h2{font-size:11px;text-align:center;font-weight:400;margin-bottom:6px}
+.dre-period{text-align:center;font-size:11px;color:#555;margin-bottom:14px;border-bottom:2px solid #000;padding-bottom:8px}
+.dre-sec h3{font-size:11px;font-weight:700;background:#f0f0f0;padding:4px 8px;border-left:3px solid #378ADD;margin-bottom:4px;margin-top:8px}
+.dre-row{display:flex;justify-content:space-between;padding:3px 8px;font-size:11px;border-bottom:1px solid #f5f5f5}
+.dre-row.sub{padding-left:20px;color:#444}
+.dre-row.sub2{padding-left:34px;color:#666;font-size:10px}
+.dre-row.tot{font-weight:700;background:#f8f8f8;border-top:1px solid #ccc;padding:5px 8px}
+.dre-row.tot.green{background:#EAF3DE}
+.dre-row.tot.blue{background:#E6F1FB}
+.dre-row.tot.amber{background:#FAEEDA}
+.dre-row.tot.red{background:#FCEBEB}
+.dre-hl{border:2px solid #1D9E75;border-radius:6px;padding:10px 14px;margin-top:12px;display:flex;justify-content:space-between;align-items:center}
+.dre-info{font-size:10px;color:#666;margin-top:10px;padding:8px;background:#f9f9f9;border-radius:4px;border-left:3px solid #1D9E75}
+@media print{.no-print{display:none!important}.dre{padding:10px}body{background:#fff}.topbar{display:none}}
+@media(max-width:640px){.g3,.g4{grid-template-columns:1fr 1fr}.g2{grid-template-columns:1fr}.nav{gap:2px}.nb{font-size:10px;padding:4px 7px}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo-bar">
+    <img id="topbar-logo" class="logo-img" src="" alt="" style="display:none">
+    <span id="agency-name">Pace Vacation</span>
+  </div>
+  <div class="nav">
+    <button class="nb active" onclick="goTo('dashboard',this)">📊 Painel</button>
+    <button class="nb" onclick="goTo('vendas',this)">➕ Venda</button>
+    <button class="nb" onclick="goTo('passageiros',this)">🧳 Passageiros</button>
+    <button class="nb" onclick="goTo('despesas',this)">💸 Despesas</button>
+    <button class="nb" onclick="goTo('dre',this)">📑 DRE</button>
+    <button class="nb" onclick="goTo('clientes',this)">👥 Clientes</button>
+    <button class="nb" onclick="goTo('fornecedores',this)">🏢 Fornecedores</button>
+    <button class="nb" onclick="goTo('relatorio',this)">📄 Relatórios</button>
+    <button class="nb" onclick="goTo('config',this)">⚙️ Config</button>
+  </div>
+  <div id="sync-status" style="font-size:11px;color:#888"></div>
+</div>
+
+<div class="content">
+
+<!-- DASHBOARD -->
+<div class="section active" id="sec-dashboard">
+  <div id="dash-info" class="info-box" style="margin-bottom:12px"></div>
+  <div class="g4" style="margin-bottom:14px">
+    <div class="mc"><div class="mc-lbl">Receita bruta (mês)</div><div class="mc-val blue" id="m-receita">R$ 0</div></div>
+    <div class="mc"><div class="mc-lbl">Fee+Margem (base)</div><div class="mc-val amber" id="m-base">R$ 0</div></div>
+    <div class="mc"><div class="mc-lbl">Simples 6%</div><div class="mc-val red" id="m-imposto">R$ 0</div></div>
+    <div class="mc"><div class="mc-lbl">Lucro líquido</div><div class="mc-val green" id="m-lucro">R$ 0</div></div>
+  </div>
+  <div class="g4" style="margin-bottom:14px">
+    <div class="mc"><div class="mc-lbl">Despesas (mês)</div><div class="mc-val amber" id="m-desp">R$ 0</div></div>
+    <div class="mc"><div class="mc-lbl">A receber</div><div class="mc-val red" id="m-receber">R$ 0</div></div>
+    <div class="mc"><div class="mc-lbl">Margem líquida</div><div class="mc-val purple" id="m-margem">0%</div></div>
+    <div class="mc"><div class="mc-lbl">Passageiros</div><div class="mc-val" id="m-pax">0</div></div>
+  </div>
+  <div class="g2">
+    <div class="card"><div class="ct">📋 Últimas vendas</div><div id="dash-vendas"><div class="loading"><span class="spinner"></span>Carregando...</div></div></div>
+    <div class="card"><div class="ct">💸 Últimas despesas</div><div id="dash-desp"><div class="loading"><span class="spinner"></span>Carregando...</div></div></div>
+  </div>
+</div>
+
+<!-- NOVA VENDA -->
+<div class="section" id="sec-vendas">
+  <div class="card">
+    <div class="ct">👤 Cliente e pedido</div>
+    <div class="g3">
+      <div class="field"><label>Cliente *</label><select id="v-cliente"><option value="">Carregando...</option></select></div>
+      <div class="field"><label>Nº do pedido</label><input type="text" id="v-ref" readonly style="background:#f5f5f5;font-weight:600"></div>
+      <div class="field"><label>Vencimento (1ª parcela)</label><input type="date" id="v-venc"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct">💼 Serviço</div>
+    <div class="tabs">
+      <button class="tab active" onclick="setTipo('aereo',this)">✈️ Aéreo</button>
+      <button class="tab" onclick="setTipo('hospedagem',this)">🏨 Hospedagem</button>
+      <button class="tab" onclick="setTipo('transfer',this)">🚗 Transfer</button>
+    </div>
+    <!-- AÉREO -->
+    <div id="form-aereo">
+      <div class="info-box">🧳 Digite o nome — se já cadastrado, os dados preenchem automaticamente.</div>
+      <div class="g3" style="margin-bottom:10px">
+        <div class="field"><label>Passageiro(s) *</label><div class="ac-wrap"><input type="text" id="ae-pax" autocomplete="off" oninput="paxSearch(this,'ac-pax-ae')"><div class="ac-list" id="ac-pax-ae" style="display:none"></div></div></div>
+        <div class="field"><label>CPF / Passaporte</label><input type="text" id="ae-doc"></div>
+        <div class="field"><label>Data de nascimento</label><input type="date" id="ae-nasc"></div>
+      </div>
+      <div class="g3" style="margin-bottom:10px">
+        <div class="field"><label>Nacionalidade</label><input type="text" id="ae-nac" placeholder="Brasileiro"></div>
+        <div class="field"><label>Telefone</label><input type="text" id="ae-tel"></div>
+        <div class="field"><label>E-mail</label><input type="email" id="ae-email"></div>
+      </div>
+      <div id="pax-ae-info" style="display:none" class="info-box"></div>
+      <div class="br" style="margin-bottom:12px">
+        <button class="bs" style="font-size:11px" onclick="salvarPaxVenda('ae')">💾 Salvar passageiro</button>
+        <span id="pax-ae-fb" style="font-size:11px;color:#1D9E75"></span>
+      </div>
+      <div class="sep"></div>
+      <div class="g3" style="margin-bottom:10px">
+        <div class="field"><label>Companhia aérea</label><select id="ae-cia"><option value="">Selecione...</option></select></div>
+        <div class="field"><label>Nº do voo</label><input type="text" id="ae-voo"></div>
+        <div class="field"><label>Classe</label><select id="ae-classe"><option>Econômica</option><option>Econômica premium</option><option>Executiva</option><option>Primeira classe</option></select></div>
+      </div>
+      <div class="g3" style="margin-bottom:10px">
+        <div class="field"><label>Origem (IATA)</label><div class="ac-wrap"><input type="text" id="ae-orig" autocomplete="off" oninput="iataSearch(this,'ac-orig')"><div class="ac-list" id="ac-orig" style="display:none"></div></div></div>
+        <div class="field"><label>Destino (IATA)</label><div class="ac-wrap"><input type="text" id="ae-dest" autocomplete="off" oninput="iataSearch(this,'ac-dest')"><div class="ac-list" id="ac-dest" style="display:none"></div></div></div>
+        <div class="field"><label>Bagagem</label><select id="ae-bag"><option>Sem bagagem</option><option>1 bagagem 23kg</option><option>2 bagagens 23kg</option></select></div>
+      </div>
+      <div class="g3" style="margin-bottom:10px">
+        <div class="field"><label>Data/hora saída</label><input type="datetime-local" id="ae-ida"></div>
+        <div class="field"><label>Data/hora retorno</label><input type="datetime-local" id="ae-volta"></div>
+        <div class="field"><label>Bilhete / NC/OS</label><input type="text" id="ae-bilhete"></div>
+      </div>
+      <div class="g3">
+        <div class="field"><label>Reserva / PNR</label><input type="text" id="ae-pnr"></div>
+        <div class="field"><label>Fornecedor</label><select id="ae-forn"><option value="">Selecione...</option></select></div>
+        <div class="field"><label>Solicitante</label><input type="text" id="ae-solic"></div>
+      </div>
+    </div>
+    <!-- HOSPEDAGEM -->
+    <div id="form-hospedagem" style="display:none">
+      <div class="info-box">🧳 Digite o nome do hóspede para buscar no banco.</div>
+      <div class="g3" style="margin-bottom:10px">
+        <div class="field"><label>Hóspede(s) *</label><div class="ac-wrap"><input type="text" id="ho-hosp" autocomplete="off" oninput="paxSearch(this,'ac-pax-ho')"><div class="ac-list" id="ac-pax-ho" style="display:none"></div></div></div>
+        <div class="field"><label>CPF / Passaporte</label><input type="text" id="ho-doc"></div>
+        <div class="field"><label>Nº hóspedes</label><input type="number" id="ho-num" value="1" min="1"></div>
+      </div>
+      <div class="br" style="margin-bottom:12px">
+        <button class="bs" style="font-size:11px" onclick="salvarPaxVenda('ho')">💾 Salvar hóspede</button>
+        <span id="pax-ho-fb" style="font-size:11px;color:#1D9E75"></span>
+      </div>
+      <div class="sep"></div>
+      <div class="g3" style="margin-bottom:10px">
+        <div class="field"><label>Hotel *</label><input type="text" id="ho-hotel"></div>
+        <div class="field"><label>Cidade</label><input type="text" id="ho-end"></div>
+        <div class="field"><label>Categoria</label><select id="ho-cat"><option>3 estrelas</option><option>4 estrelas</option><option>5 estrelas</option><option>Resort</option></select></div>
+      </div>
+      <div class="g3" style="margin-bottom:10px">
+        <div class="field"><label>Check-in</label><input type="date" id="ho-in"></div>
+        <div class="field"><label>Check-out</label><input type="date" id="ho-out"></div>
+        <div class="field"><label>Diárias</label><input type="number" id="ho-dias" value="1" min="1"></div>
+      </div>
+      <div class="g2">
+        <div class="field"><label>Tipo de quarto</label><input type="text" id="ho-quarto"></div>
+        <div class="field"><label>Regime</label><select id="ho-regime"><option>Café da manhã</option><option>Meia pensão</option><option>All inclusive</option></select></div>
+      </div>
+    </div>
+    <!-- TRANSFER -->
+    <div id="form-transfer" style="display:none">
+      <div class="info-box">🧳 Digite o nome para buscar no banco.</div>
+      <div class="g3" style="margin-bottom:10px">
+        <div class="field"><label>Passageiro(s) *</label><div class="ac-wrap"><input type="text" id="tr-pax" autocomplete="off" oninput="paxSearch(this,'ac-pax-tr')"><div class="ac-list" id="ac-pax-tr" style="display:none"></div></div></div>
+        <div class="field"><label>Telefone</label><input type="text" id="tr-tel"></div>
+        <div class="field"><label>Nº passageiros</label><input type="number" id="tr-num" value="1" min="1"></div>
+      </div>
+      <div class="br" style="margin-bottom:12px">
+        <button class="bs" style="font-size:11px" onclick="salvarPaxVenda('tr')">💾 Salvar passageiro</button>
+        <span id="pax-tr-fb" style="font-size:11px;color:#1D9E75"></span>
+      </div>
+      <div class="sep"></div>
+      <div class="g3" style="margin-bottom:10px">
+        <div class="field"><label>Tipo</label><select id="tr-tipo"><option>Transfer aeroporto→hotel</option><option>Transfer hotel→aeroporto</option><option>Traslado</option><option>Excursão</option></select></div>
+        <div class="field"><label>Veículo</label><select id="tr-veiculo"><option>Sedã</option><option>SUV/Van</option><option>Micro-ônibus</option></select></div>
+        <div class="field"><label>Data e hora</label><input type="datetime-local" id="tr-data"></div>
+      </div>
+      <div class="g2">
+        <div class="field"><label>Origem</label><input type="text" id="tr-orig"></div>
+        <div class="field"><label>Destino</label><input type="text" id="tr-dest"></div>
+      </div>
+    </div>
+  </div>
+  <!-- VALORES -->
+  <div class="card">
+    <div class="ct">💰 Valores</div>
+    <div class="g4">
+      <div class="field"><label>Custo fornecedor (R$)</label><input type="number" id="v-custo" step="0.01" placeholder="0,00" oninput="calcLucro()"></div>
+      <div class="field"><label>Fee de agência (R$)</label><input type="number" id="v-fee" step="0.01" placeholder="0,00" oninput="calcLucro()"></div>
+      <div class="field"><label>Margem embutida (R$)</label><input type="number" id="v-margem" step="0.01" placeholder="0,00" oninput="calcLucro()"></div>
+      <div class="field"><label>Preço de venda (R$)</label><input type="number" id="v-venda" step="0.01" placeholder="0,00" style="font-weight:600" oninput="calcLucroRev()"></div>
+    </div>
+    <div class="calc-box">
+      <div class="calc-row"><span>Fee + Margem (base tributável)</span><span id="calc-base">R$ 0,00</span></div>
+      <div class="calc-row"><span>Simples Nacional 6%</span><span id="calc-imp" style="color:#E24B4A">- R$ 0,00</span></div>
+      <div class="calc-row total"><span>Lucro líquido desta venda</span><span id="calc-lucro" style="color:#1D9E75">R$ 0,00</span></div>
+    </div>
+    <div class="pgto-box">
+      <div class="pgto-title">💳 Condições de pagamento</div>
+      <div class="g2" style="margin-bottom:10px">
+        <div class="field"><label>Forma de pagamento</label>
+          <select id="v-pgto" onchange="onPgtoChange()">
+            <option>PIX</option><option>Boleto</option><option>Transferência bancária</option><option>Cartão de crédito</option><option>Cartão de débito</option>
+          </select>
+        </div>
+        <div class="field"><label>Status</label>
+          <select id="v-status"><option value="pendente">Pendente</option><option value="parcial">Parcial</option><option value="pago">Pago</option></select>
+        </div>
+      </div>
+      <div class="ptoggle">
+        <button class="ptog active" id="tog-avista" onclick="setParc('avista')">💵 À vista</button>
+        <button class="ptog" id="tog-parcelado" onclick="setParc('parcelado')">📅 Parcelado</button>
+      </div>
+      <div id="parcelas-area" style="display:none">
+        <div style="font-size:11px;color:#888;margin-bottom:6px">Selecione o número de parcelas:</div>
+        <div class="parcelas-grid" id="parcelas-grid"></div>
+      </div>
+      <div class="resumo-pgto">
+        <div class="resumo-row"><span>Modalidade</span><span id="res-mod">À vista</span></div>
+        <div class="resumo-row"><span>Forma</span><span id="res-forma">PIX</span></div>
+        <div class="resumo-row dest"><span id="res-lbl">Valor total</span><span id="res-val">R$ 0,00</span></div>
+      </div>
+    </div>
+    <div class="sep"></div>
+    <div class="field"><label>Observações</label><input type="text" id="v-obs"></div>
+  </div>
+  <div class="br">
+    <button class="bp" onclick="salvarVenda()">✔ Salvar venda</button>
+    <button class="bs" onclick="limparVenda()">✕ Limpar</button>
+  </div>
+  <div id="venda-alert" style="margin-top:10px"></div>
+</div>
+
+<!-- PASSAGEIROS -->
+<div class="section" id="sec-passageiros">
+  <div class="card">
+    <div class="ct">➕ Cadastrar passageiro</div>
+    <div class="g3" style="margin-bottom:10px">
+      <div class="field"><label>Nome completo *</label><input type="text" id="px-nome"></div>
+      <div class="field"><label>CPF / Passaporte *</label><input type="text" id="px-doc"></div>
+      <div class="field"><label>Data de nascimento</label><input type="date" id="px-nasc"></div>
+    </div>
+    <div class="g3" style="margin-bottom:10px">
+      <div class="field"><label>Nacionalidade</label><input type="text" id="px-nac"></div>
+      <div class="field"><label>Telefone</label><input type="text" id="px-tel"></div>
+      <div class="field"><label>E-mail</label><input type="email" id="px-email"></div>
+    </div>
+    <div class="g3" style="margin-bottom:10px">
+      <div class="field"><label>Nº passaporte</label><input type="text" id="px-passport"></div>
+      <div class="field"><label>Validade passaporte</label><input type="date" id="px-passvalid"></div>
+      <div class="field"><label>Vínculo (empresa/cliente)</label><input type="text" id="px-vinculo"></div>
+    </div>
+    <div class="field" style="margin-bottom:10px"><label>Observações / necessidades especiais</label><input type="text" id="px-obs"></div>
+    <div class="br"><button class="bp" onclick="salvarPassageiro()">💾 Salvar</button></div>
+    <div id="pax-alert" style="margin-top:10px"></div>
+  </div>
+  <div class="card">
+    <div class="ct" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <span>🧳 Passageiros (<span id="pax-count">0</span>)</span>
+      <input type="text" id="pax-busca" placeholder="Buscar por nome ou documento..." style="font-size:12px;padding:5px 10px;border:1px solid #ddd;border-radius:8px;width:240px" oninput="renderPassageiros()">
+    </div>
+    <div id="lista-pax"><div class="loading"><span class="spinner"></span>Carregando...</div></div>
+  </div>
+</div>
+
+<!-- DESPESAS -->
+<div class="section" id="sec-despesas">
+  <div class="card">
+    <div class="ct">➕ Lançar despesa</div>
+    <div class="g3" style="margin-bottom:10px">
+      <div class="field"><label>Descrição *</label><input type="text" id="dp-desc"></div>
+      <div class="field"><label>Categoria</label>
+        <select id="dp-cat"><option value="contador">Contador/Contabilidade</option><option value="aluguel">Aluguel/Coworking</option><option value="utilities">Água/Luz/Internet</option><option value="marketing">Marketing</option><option value="pessoal">Pessoal/Salários</option><option value="tecnologia">Tecnologia/GDS</option><option value="viagem">Viagem/Representação</option><option value="administrativo">Administrativo</option><option value="outros">Outros</option></select>
+      </div>
+      <div class="field"><label>Tipo</label><select id="dp-tipo"><option value="fixa">Fixa mensal</option><option value="pontual">Pontual</option></select></div>
+    </div>
+    <div class="g3" style="margin-bottom:10px">
+      <div class="field"><label>Valor (R$) *</label><input type="number" id="dp-valor" step="0.01" placeholder="0,00"></div>
+      <div class="field"><label>Data *</label><input type="date" id="dp-data"></div>
+      <div class="field"><label>Status</label><select id="dp-status"><option value="pago">Pago</option><option value="pendente">A pagar</option></select></div>
+    </div>
+    <div class="field" style="margin-bottom:10px"><label>Observação</label><input type="text" id="dp-obs"></div>
+    <div class="br">
+      <button class="bp" onclick="salvarDespesa()">✔ Lançar</button>
+      <button class="bs" onclick="replicarFixas()">🔄 Replicar fixas do mês anterior</button>
+    </div>
+    <div id="desp-alert" style="margin-top:10px"></div>
+  </div>
+  <div class="card">
+    <div class="ct" style="justify-content:space-between">
+      <span>💸 Despesas lançadas</span>
+      <select id="dp-mes-filtro" style="font-size:11px;padding:4px 8px;border:1px solid #ddd;border-radius:6px" onchange="renderDespesas()"></select>
+    </div>
+    <div id="lista-desp"><div class="loading"><span class="spinner"></span>Carregando...</div></div>
+  </div>
+</div>
+
+<!-- DRE -->
+<div class="section" id="sec-dre">
+  <div class="card">
+    <div class="ct">📑 Gerar DRE mensal</div>
+    <div class="g3">
+      <div class="field"><label>Mês</label><select id="dre-mes"><option value="0">Janeiro</option><option value="1">Fevereiro</option><option value="2">Março</option><option value="3">Abril</option><option value="4">Maio</option><option value="5">Junho</option><option value="6">Julho</option><option value="7">Agosto</option><option value="8">Setembro</option><option value="9">Outubro</option><option value="10">Novembro</option><option value="11">Dezembro</option></select></div>
+      <div class="field"><label>Ano</label><input type="number" id="dre-ano" value="2026" min="2020" max="2099"></div>
+      <div class="field" style="justify-content:flex-end"><button class="bp" style="margin-top:18px;width:100%" onclick="gerarDRE()">📑 Gerar DRE</button></div>
+    </div>
+  </div>
+  <div id="dre-resultado"></div>
+</div>
+
+<!-- CLIENTES -->
+<div class="section" id="sec-clientes">
+  <div class="card">
+    <div class="ct">➕ Novo cliente</div>
+    <div class="g3" style="margin-bottom:10px">
+      <div class="field"><label>Nome / Razão social *</label><input type="text" id="cl-nome"></div>
+      <div class="field"><label>CPF / CNPJ *</label><input type="text" id="cl-doc"></div>
+      <div class="field"><label>A/C (responsável)</label><input type="text" id="cl-ac"></div>
+    </div>
+    <div class="g3" style="margin-bottom:10px">
+      <div class="field"><label>E-mail</label><input type="email" id="cl-email"></div>
+      <div class="field"><label>Telefone</label><input type="text" id="cl-tel"></div>
+      <div class="field"><label>Inscrição</label><input type="text" id="cl-insc"></div>
+    </div>
+    <div class="g3" style="margin-bottom:10px">
+      <div class="field"><label>Endereço</label><input type="text" id="cl-end"></div>
+      <div class="field"><label>Bairro</label><input type="text" id="cl-bairro"></div>
+      <div class="field"><label>Cidade/Estado</label><input type="text" id="cl-cidade"></div>
+    </div>
+    <div class="g2" style="margin-bottom:10px">
+      <div class="field"><label>CEP</label><input type="text" id="cl-cep"></div>
+      <div class="field"><label>Praça de pagamento</label><input type="text" id="cl-praca"></div>
+    </div>
+    <div class="br"><button class="bp" onclick="salvarCliente()">✔ Cadastrar</button></div>
+    <div id="cl-alert" style="margin-top:10px"></div>
+  </div>
+  <div class="card"><div class="ct">👥 Clientes</div><div id="lista-cl"><div class="loading"><span class="spinner"></span>Carregando...</div></div></div>
+</div>
+
+<!-- FORNECEDORES -->
+<div class="section" id="sec-fornecedores">
+  <div class="card">
+    <div class="ct">➕ Novo fornecedor</div>
+    <div class="g3" style="margin-bottom:10px">
+      <div class="field"><label>Nome *</label><input type="text" id="fn-nome"></div>
+      <div class="field"><label>Tipo</label><select id="fn-tipo"><option value="aereo">Aéreo/GDS</option><option value="hospedagem">Hospedagem</option><option value="transfer">Transfer</option><option value="todos">Todos</option></select></div>
+      <div class="field"><label>CNPJ/Código</label><input type="text" id="fn-doc"></div>
+    </div>
+    <div class="g3" style="margin-bottom:10px">
+      <div class="field"><label>Contato</label><input type="text" id="fn-contato"></div>
+      <div class="field"><label>Telefone</label><input type="text" id="fn-tel"></div>
+      <div class="field"><label>E-mail</label><input type="email" id="fn-email"></div>
+    </div>
+    <div class="br"><button class="bp" onclick="salvarFornecedor()">✔ Cadastrar</button></div>
+    <div id="fn-alert" style="margin-top:10px"></div>
+  </div>
+  <div class="card"><div class="ct">🏢 Fornecedores</div><div id="lista-fn"><div class="loading"><span class="spinner"></span>Carregando...</div></div></div>
+</div>
+
+<!-- RELATÓRIOS -->
+<div class="section" id="sec-relatorio">
+  <div class="card">
+    <div class="ct">🔍 Filtros</div>
+    <div class="g3">
+      <div class="field"><label>Cliente</label><select id="r-cliente"><option value="">Todos</option></select></div>
+      <div class="field"><label>Tipo</label><select id="r-tipo"><option value="">Todos</option><option value="aereo">Aéreo</option><option value="hospedagem">Hospedagem</option><option value="transfer">Transfer</option></select></div>
+      <div class="field"><label>Status</label><select id="r-status"><option value="">Todos</option><option value="pago">Pago</option><option value="pendente">Pendente</option><option value="parcial">Parcial</option></select></div>
+    </div>
+    <div class="br">
+      <button class="bp" onclick="gerarRelatorio()">📊 Relatório</button>
+      <button class="bs" onclick="exportarCSV()">⬇ Exportar CSV</button>
+      <button class="bs" onclick="gerarFatura()">🧾 Gerar fatura</button>
+    </div>
+  </div>
+  <div id="rel-resultado"></div>
+  <div id="fatura-area"></div>
+</div>
+
+<!-- CONFIG -->
+<div class="section" id="sec-config">
+  <div class="card">
+    <div class="ct">🏢 Dados da agência</div>
+    <div class="g2" style="margin-bottom:10px">
+      <div class="field"><label>Nome</label><input type="text" id="cfg-nome"></div>
+      <div class="field"><label>Razão social</label><input type="text" id="cfg-razao"></div>
+    </div>
+    <div class="g3" style="margin-bottom:10px">
+      <div class="field"><label>CNPJ</label><input type="text" id="cfg-cnpj"></div>
+      <div class="field"><label>CADASTUR</label><input type="text" id="cfg-cadastur"></div>
+      <div class="field"><label>Inscrição Municipal</label><input type="text" id="cfg-inscmun"></div>
+    </div>
+    <div class="g3" style="margin-bottom:10px">
+      <div class="field"><label>Telefone</label><input type="text" id="cfg-tel"></div>
+      <div class="field"><label>E-mail</label><input type="email" id="cfg-email"></div>
+      <div class="field"><label>CEP</label><input type="text" id="cfg-cep"></div>
+    </div>
+    <div class="g2" style="margin-bottom:10px">
+      <div class="field"><label>Endereço</label><input type="text" id="cfg-end"></div>
+      <div class="field"><label>Cidade/Estado</label><input type="text" id="cfg-cidade"></div>
+    </div>
+    <div class="sep"></div>
+    <div class="ct">💰 Tributação</div>
+    <div class="info-box" style="border-left-color:#1D9E75;background:#f0faf5;color:#27500A">
+      ✅ Simples Nacional de <strong>6%</strong> sobre fee+margem (Nota de Débito) — confirmado com contador.
+    </div>
+    <div class="g2" style="margin-bottom:10px">
+      <div class="field"><label>Alíquota (%)</label><input type="number" id="cfg-aliq" step="0.01"></div>
+      <div class="field"><label>Regime</label><input type="text" id="cfg-anexo"></div>
+    </div>
+    <div class="sep"></div>
+    <div class="ct">🏦 Dados bancários</div>
+    <div class="g3" style="margin-bottom:10px">
+      <div class="field"><label>Banco</label><input type="text" id="cfg-banco"></div>
+      <div class="field"><label>Agência</label><input type="text" id="cfg-ag"></div>
+      <div class="field"><label>Conta</label><input type="text" id="cfg-cc"></div>
+    </div>
+    <div class="g2" style="margin-bottom:10px">
+      <div class="field"><label>Chave PIX</label><input type="text" id="cfg-pix"></div>
+      <div class="field"><label>Encargos/dia atraso (R$)</label><input type="number" id="cfg-encargos" step="0.01"></div>
+    </div>
+    <div class="sep"></div>
+    <div class="ct">🖼 Logo da agência</div>
+    <div class="upload-area" onclick="document.getElementById('logo-upload').click()">
+      Clique para fazer upload do logo (PNG, JPG ou SVG)
+      <img id="logo-preview" class="logo-preview" src="" style="display:none;display:block;margin:8px auto 0">
+    </div>
+    <input type="file" id="logo-upload" accept="image/*" style="display:none" onchange="uploadLogo(this)">
+    <div class="br"><button class="bp" onclick="salvarConfig()">✔ Salvar configurações</button></div>
+    <div id="cfg-alert" style="margin-top:10px"></div>
+  </div>
+</div>
+
+</div><!-- /content -->
+
+<script>
+// ── SUPABASE ──────────────────────────────────────────────
+const SUPA_URL = 'https://tunzgdvipkonwnzvqthe.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1bnpnZHZpcGtvbnduenZxdGhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NjYwODcsImV4cCI6MjA5NTQ0MjA4N30.cu_0UtxuibZNJ3NXIKktvMY77L0d3owiUlOeKJ11kak';
+const { createClient } = supabase;
+const db = createClient(SUPA_URL, SUPA_KEY);
+
+// ── ESTADO LOCAL ──────────────────────────────────────────
+let clientes=[], passageiros=[], fornecedores=[], vendas=[], despesas=[];
+let cfg={nome:'PACE VACATION',razao:'RANIERI&FRANCO AGÊNCIA DE VIAGENS LTDA',cnpj:'63.513.094/0001-12',cadastur:'63.513.094/0001-12',inscmun:'452933',tel:'(11) 96630-0167',email:'cesar.ranieri@pacevacation.com.br',cep:'18074-757',end:'RUA MANOEL DE OLIVEIRA LIMA, 241 – A7 30',cidade:'SOROCABA, SP, BRASIL',banco:'C6 Bank (336)',ag:'0001',cc:'42034856-5',pix:'63.513.094/0001-12',encargos:0.32,aliq:6,anexo:'Nota de Débito — Fee + Margem',logo:''};
+let tipoAtual='aereo', modoParc='avista', numParc=1;
+const MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const IATA=[['GRU','São Paulo Guarulhos','BR'],['CGH','São Paulo Congonhas','BR'],['VCP','Campinas','BR'],['GIG','Rio Galeão','BR'],['SDU','Rio Santos Dumont','BR'],['BSB','Brasília','BR'],['SSA','Salvador','BR'],['FOR','Fortaleza','BR'],['REC','Recife','BR'],['BEL','Belém','BR'],['MAO','Manaus','BR'],['CWB','Curitiba','BR'],['POA','Porto Alegre','BR'],['FLN','Florianópolis','BR'],['IGU','Foz do Iguaçu','BR'],['BPS','Porto Seguro','BR'],['VIX','Vitória','BR'],['NAT','Natal','BR'],['MCZ','Maceió','BR'],['JPA','João Pessoa','BR'],['GYN','Goiânia','BR'],['CGB','Cuiabá','BR'],['MXP','Milão Malpensa','IT'],['FCO','Roma Fiumicino','IT'],['LHR','Londres Heathrow','GB'],['CDG','Paris Charles de Gaulle','FR'],['FRA','Frankfurt','DE'],['AMS','Amsterdam','NL'],['MAD','Madrid','ES'],['BCN','Barcelona','ES'],['LIS','Lisboa','PT'],['OPO','Porto','PT'],['JFK','Nova York JFK','US'],['EWR','Nova York Newark','US'],['LAX','Los Angeles','US'],['MIA','Miami','US'],['ORD','Chicago','US'],['ATL','Atlanta','US'],['MCO','Orlando','US'],['LAS','Las Vegas','US'],['MEX','Cidade do México','MX'],['CUN','Cancún','MX'],['BOG','Bogotá','CO'],['LIM','Lima','PE'],['SCL','Santiago','CL'],['EZE','Buenos Aires Ezeiza','AR'],['MVD','Montevidéu','UY'],['DXB','Dubai','AE'],['DOH','Doha','QA'],['IST','Istambul','TR'],['NRT','Tóquio','JP'],['SYD','Sydney','AU'],['BKK','Bangkok','TH'],['DEL','Nova Delhi','IN'],['HKG','Hong Kong','CN'],['ICN','Seul','KR']];
+
+// sync indicator
+function sync(msg){document.getElementById('sync-status').textContent=msg;if(msg.includes('✅'))setTimeout(()=>document.getElementById('sync-status').textContent='',3000);}
+
+// ── INIT ─────────────────────────────────────────────────
+async function init(){
+  sync('⏳ Conectando...');
+  await Promise.all([loadConfig(),loadClientes(),loadPassageiros(),loadFornecedores(),loadVendas(),loadDespesas()]);
+  sync('✅ Conectado ao banco');
+  atualizaDash();
+  preencherSelectClientes();
+  preencherSelectFornecedores();
+  gerarNumPedido();
+  const n=new Date();document.getElementById('dre-mes').value=n.getMonth();document.getElementById('dre-ano').value=n.getFullYear();
+}
+
+// ── SUPABASE CRUD ─────────────────────────────────────────
+async function loadConfig(){const{data}=await db.from('config').select('*').limit(1);if(data&&data[0]){const r=data[0];cfg={nome:r.nome||cfg.nome,razao:r.razao||cfg.razao,cnpj:r.cnpj||cfg.cnpj,cadastur:r.cadastur||cfg.cadastur,inscmun:r.inscmun||cfg.inscmun,tel:r.tel||cfg.tel,email:r.email||cfg.email,cep:r.cep||cfg.cep,end:r.endereco||cfg.end,cidade:r.cidade||cfg.cidade,banco:r.banco||cfg.banco,ag:r.agencia||cfg.ag,cc:r.conta||cfg.cc,pix:r.pix||cfg.pix,encargos:r.encargos||cfg.encargos,aliq:r.aliq||cfg.aliq,anexo:r.anexo||cfg.anexo,logo:r.logo||'',cfgId:r.id};if(cfg.logo){document.getElementById('logo-preview').src=cfg.logo;document.getElementById('logo-preview').style.display='block';document.getElementById('topbar-logo').src=cfg.logo;document.getElementById('topbar-logo').style.display='inline';}document.getElementById('agency-name').textContent=cfg.nome;}}
+async function loadClientes(){const{data}=await db.from('clientes').select('*').order('created_at');clientes=data||[];renderClientes();preencherSelectClientes();}
+async function loadPassageiros(){const{data}=await db.from('passageiros').select('*').order('nome');passageiros=data||[];renderPassageiros();}
+async function loadFornecedores(){const{data}=await db.from('fornecedores').select('*').order('nome');fornecedores=data||[];renderFornecedores();preencherSelectFornecedores();}
+async function loadVendas(){const{data}=await db.from('vendas').select('*,clientes(nome,seq)').order('created_at',{ascending:false});vendas=data||[];}
+async function loadDespesas(){const{data}=await db.from('despesas').select('*').order('data',{ascending:false});despesas=data||[];populateMesFiltro();}
+
+// ── HELPERS ───────────────────────────────────────────────
+function fmtBRL(v){return'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function getMesAtual(){const n=new Date();return`${String(n.getMonth()+1).padStart(2,'0')}/${n.getFullYear()}`;}
+function fmtData(d){if(!d)return'';const p=d.split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d;}
+function v(id){return document.getElementById(id)?.value.trim()||'';}
+function sv(id,val){const el=document.getElementById(id);if(el)el.value=val||'';}
+function tipoLabel(t){return{aereo:'Aéreo',hospedagem:'Hospedagem',transfer:'Transfer',todos:'Todos',contador:'Contador',aluguel:'Aluguel',utilities:'Água/Luz/Internet',marketing:'Marketing',pessoal:'Pessoal',tecnologia:'Tecnologia',viagem:'Viagem',administrativo:'Administrativo',outros:'Outros'}[t]||t;}
+function showAlert(id,msg,type){const el=document.getElementById(id);if(!el)return;el.innerHTML=`<div class="alert alert-${type}">${msg}</div>`;setTimeout(()=>el.innerHTML='',4000);}
+
+// ── NAVEGAÇÃO ─────────────────────────────────────────────
+function goTo(sec,btn){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
+  document.getElementById('sec-'+sec).classList.add('active');
+  if(btn)btn.classList.add('active');
+  if(sec==='dashboard')atualizaDash();
+  if(sec==='vendas'){preencherSelectClientes();preencherSelectFornecedores();gerarNumPedido();}
+  if(sec==='passageiros')renderPassageiros();
+  if(sec==='despesas'){populateMesFiltro();renderDespesas();}
+  if(sec==='clientes')renderClientes();
+  if(sec==='fornecedores')renderFornecedores();
+  if(sec==='relatorio')preencherSelectClientes();
+  if(sec==='config')carregarConfig();
+}
+
+// ── IATA ─────────────────────────────────────────────────
+function iataSearch(inp,lid){const q=inp.value.trim().toLowerCase();const list=document.getElementById(lid);if(q.length<2){list.style.display='none';return;}const res=IATA.filter(a=>a[0].toLowerCase().startsWith(q)||a[1].toLowerCase().includes(q)).slice(0,10);if(!res.length){list.style.display='none';return;}list.innerHTML=res.map(a=>`<div class="ac-item" onclick="selIATA('${inp.id}','${lid}','${a[0]}','${a[1]}')"><span style="font-weight:600;color:#185FA5;margin-right:6px">${a[0]}</span>${a[1]} — ${a[2]}</div>`).join('');list.style.display='block';}
+function selIATA(iid,lid,code,city){sv(iid,code+' – '+city);document.getElementById(lid).style.display='none';}
+document.addEventListener('click',e=>{if(!e.target.closest('.ac-wrap'))document.querySelectorAll('.ac-list').forEach(l=>l.style.display='none');});
+
+// ── PASSAGEIROS AUTOCOMPLETE ──────────────────────────────
+function paxSearch(inp,lid){const q=inp.value.trim().toLowerCase();const list=document.getElementById(lid);if(q.length<2){list.style.display='none';return;}const res=passageiros.filter(p=>p.nome.toLowerCase().includes(q)||(p.doc&&p.doc.toLowerCase().includes(q))).slice(0,8);if(!res.length){list.style.display='none';return;}list.innerHTML=res.map(p=>`<div class="ac-item" onclick="preencherPax('${inp.id}','${lid}','${p.id}')"><div class="ac-name">🧳 ${p.nome}</div><div class="ac-detail">${p.doc||''}${p.nasc?' · Nasc: '+fmtData(p.nasc):''}${p.tel?' · '+p.tel:''}${p.vinculo?' · '+p.vinculo:''}</div></div>`).join('');list.style.display='block';}
+function preencherPax(iid,lid,paxId){const p=passageiros.find(x=>x.id===paxId);if(!p)return;document.getElementById(lid).style.display='none';if(iid==='ae-pax'){sv('ae-pax',p.nome);sv('ae-doc',p.doc||'');sv('ae-nasc',p.nasc||'');sv('ae-nac',p.nac||'');sv('ae-tel',p.tel||'');sv('ae-email',p.email||'');['ae-pax','ae-doc','ae-nasc','ae-nac','ae-tel','ae-email'].forEach(id=>{const el=document.getElementById(id);if(el&&el.value)el.classList.add('autofilled');});const box=document.getElementById('pax-ae-info');if(box){box.style.display='block';box.innerHTML=`✅ Passageiro carregado: <strong>${p.nome}</strong>${p.doc?' — '+p.doc:''}${p.vinculo?' — '+p.vinculo:''}`;}}else if(iid==='ho-hosp'){sv('ho-hosp',p.nome);sv('ho-doc',p.doc||'');['ho-hosp','ho-doc'].forEach(id=>{const el=document.getElementById(id);if(el&&el.value)el.classList.add('autofilled');});}else if(iid==='tr-pax'){sv('tr-pax',p.nome);sv('tr-tel',p.tel||'');['tr-pax','tr-tel'].forEach(id=>{const el=document.getElementById(id);if(el&&el.value)el.classList.add('autofilled');});}}
+async function salvarPaxVenda(prefix){let nome='',doc='',nasc='',nac='',tel='',email='';if(prefix==='ae'){nome=v('ae-pax');doc=v('ae-doc');nasc=v('ae-nasc');nac=v('ae-nac');tel=v('ae-tel');email=v('ae-email');}else if(prefix==='ho'){nome=v('ho-hosp');doc=v('ho-doc');}else{nome=v('tr-pax');tel=v('tr-tel');}if(!nome)return;const existe=passageiros.find(p=>p.nome.toLowerCase()===nome.toLowerCase());if(existe){document.getElementById(`pax-${prefix}-fb`).textContent='✅ Já está no banco!';setTimeout(()=>document.getElementById(`pax-${prefix}-fb`).textContent='',3000);return;}const{data,error}=await db.from('passageiros').insert([{nome,doc:doc||null,nasc:nasc||null,nac:nac||null,tel:tel||null,email:email||null}]).select();if(!error&&data){passageiros.push(data[0]);document.getElementById(`pax-${prefix}-fb`).textContent='✅ Salvo!';setTimeout(()=>document.getElementById(`pax-${prefix}-fb`).textContent='',3000);}}
+
+// ── PASSAGEIROS CRUD ──────────────────────────────────────
+async function salvarPassageiro(){const nome=v('px-nome'),doc=v('px-doc');if(!nome||!doc){showAlert('pax-alert','Preencha nome e documento.','i');return;}const existe=passageiros.find(p=>p.nome.toLowerCase()===nome.toLowerCase()&&p.doc===doc);if(existe){showAlert('pax-alert','Passageiro já cadastrado com este documento.','i');return;}const{data,error}=await db.from('passageiros').insert([{nome,doc,nasc:v('px-nasc')||null,nac:v('px-nac')||null,tel:v('px-tel')||null,email:v('px-email')||null,passport:v('px-passport')||null,passvalid:v('px-passvalid')||null,vinculo:v('px-vinculo')||null,obs:v('px-obs')||null}]).select();if(error){showAlert('pax-alert','Erro ao salvar: '+error.message,'e');return;}passageiros.push(data[0]);['px-nome','px-doc','px-nasc','px-nac','px-tel','px-email','px-passport','px-passvalid','px-vinculo','px-obs'].forEach(id=>sv(id,''));showAlert('pax-alert','Passageiro salvo!','s');renderPassageiros();atualizaDash();}
+function renderPassageiros(){const busca=(v('pax-busca')||'').toLowerCase();const f=passageiros.filter(p=>!busca||p.nome.toLowerCase().includes(busca)||(p.doc&&p.doc.toLowerCase().includes(busca)));const el=document.getElementById('lista-pax');document.getElementById('pax-count').textContent=passageiros.length;if(!f.length){el.innerHTML='<div class="empty">Nenhum passageiro encontrado.</div>';return;}el.innerHTML=f.map(p=>{const ini=p.nome.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();const viagens=vendas.filter(vd=>{const d=vd.detalhes;return d&&((d.pax&&d.pax.toLowerCase()===p.nome.toLowerCase())||(d.hosp&&d.hosp.toLowerCase()===p.nome.toLowerCase()));}).length;return`<div class="pax-card"><div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;align-items:center;gap:10px"><div class="pax-avatar">${ini}</div><div><div style="font-weight:600;font-size:13px">${p.nome}</div><div style="font-size:11px;color:#888">${p.doc||''}${p.vinculo?' · '+p.vinculo:''} · <strong>${viagens} viagem(ns)</strong></div></div></div><div style="display:flex;gap:6px"><button class="be" onclick="editarPax('${p.id}')">✏ Editar</button><button class="bd" onclick="delPax('${p.id}')">✕</button></div></div><div class="pax-grid">${p.nasc?`<div class="pax-field"><div class="pax-field-label">Nascimento</div><div class="pax-field-val">${fmtData(p.nasc)}</div></div>`:''}${p.nac?`<div class="pax-field"><div class="pax-field-label">Nacionalidade</div><div class="pax-field-val">${p.nac}</div></div>`:''}${p.tel?`<div class="pax-field"><div class="pax-field-label">Telefone</div><div class="pax-field-val">${p.tel}</div></div>`:''}${p.email?`<div class="pax-field"><div class="pax-field-label">E-mail</div><div class="pax-field-val">${p.email}</div></div>`:''}${p.passport?`<div class="pax-field"><div class="pax-field-label">Passaporte</div><div class="pax-field-val">${p.passport}${p.passvalid?' (val: '+fmtData(p.passvalid)+')':''}</div></div>`:''}${p.obs?`<div class="pax-field"><div class="pax-field-label">Obs.</div><div class="pax-field-val">${p.obs}</div></div>`:''}</div></div>`;}).join('');}
+function editarPax(id){const p=passageiros.find(x=>x.id===id);if(!p)return;sv('px-nome',p.nome);sv('px-doc',p.doc||'');sv('px-nasc',p.nasc||'');sv('px-nac',p.nac||'');sv('px-tel',p.tel||'');sv('px-email',p.email||'');sv('px-passport',p.passport||'');sv('px-passvalid',p.passvalid||'');sv('px-vinculo',p.vinculo||'');sv('px-obs',p.obs||'');passageiros=passageiros.filter(x=>x.id!==id);db.from('passageiros').delete().eq('id',id);showAlert('pax-alert','Dados carregados para edição. Salve novamente.','i');window.scrollTo(0,0);}
+async function delPax(id){if(!confirm('Remover passageiro?'))return;await db.from('passageiros').delete().eq('id',id);passageiros=passageiros.filter(p=>p.id!==id);renderPassageiros();atualizaDash();}
+
+// ── CLIENTES CRUD ─────────────────────────────────────────
+async function salvarCliente(){const nome=v('cl-nome'),doc=v('cl-doc');if(!nome||!doc){showAlert('cl-alert','Preencha nome e CPF/CNPJ.','i');return;}const seq=String(clientes.length+1).padStart(6,'0');const{data,error}=await db.from('clientes').insert([{seq,nome,doc,ac:v('cl-ac')||null,email:v('cl-email')||null,tel:v('cl-tel')||null,insc:v('cl-insc')||null,endereco:v('cl-end')||null,bairro:v('cl-bairro')||null,cidade:v('cl-cidade')||null,cep:v('cl-cep')||null,praca:v('cl-praca')||null}]).select();if(error){showAlert('cl-alert','Erro: '+error.message,'e');return;}clientes.push(data[0]);['cl-nome','cl-doc','cl-ac','cl-email','cl-tel','cl-insc','cl-end','cl-bairro','cl-cidade','cl-cep','cl-praca'].forEach(id=>sv(id,''));showAlert('cl-alert','Cliente cadastrado!','s');renderClientes();preencherSelectClientes();}
+function renderClientes(){const el=document.getElementById('lista-cl');if(!clientes.length){el.innerHTML='<div class="empty">Nenhum cliente cadastrado.</div>';return;}el.innerHTML='<div class="tbl-wrap"><table class="dt"><thead><tr><th>Cód.</th><th>Nome</th><th>CNPJ/CPF</th><th>A/C</th><th>Cidade</th><th></th></tr></thead><tbody>'+clientes.map(c=>`<tr><td>${c.seq||''}</td><td>${c.nome}</td><td>${c.doc}</td><td>${c.ac||'-'}</td><td>${c.cidade||'-'}</td><td><button class="bd" onclick="delCliente('${c.id}')">✕</button></td></tr>`).join('')+'</tbody></table></div>';}
+async function delCliente(id){if(!confirm('Remover cliente?'))return;await db.from('clientes').delete().eq('id',id);clientes=clientes.filter(c=>c.id!==id);renderClientes();preencherSelectClientes();}
+function preencherSelectClientes(){['v-cliente','r-cliente'].forEach(sid=>{const sel=document.getElementById(sid);if(!sel)return;const all=sid==='r-cliente'?'<option value="">Todos</option>':'<option value="">Selecione...</option>';sel.innerHTML=all+clientes.map(c=>`<option value="${c.id}">${c.seq||''} – ${c.nome}</option>`).join('');});}
+
+// ── FORNECEDORES CRUD ─────────────────────────────────────
+async function salvarFornecedor(){const nome=v('fn-nome');if(!nome){showAlert('fn-alert','Informe o nome.','i');return;}const{data,error}=await db.from('fornecedores').insert([{nome,tipo:v('fn-tipo'),doc:v('fn-doc')||null,contato:v('fn-contato')||null,tel:v('fn-tel')||null,email:v('fn-email')||null}]).select();if(error){showAlert('fn-alert','Erro: '+error.message,'e');return;}fornecedores.push(data[0]);['fn-nome','fn-doc','fn-contato','fn-tel','fn-email'].forEach(id=>sv(id,''));showAlert('fn-alert','Fornecedor cadastrado!','s');renderFornecedores();preencherSelectFornecedores();}
+function renderFornecedores(){const el=document.getElementById('lista-fn');if(!fornecedores.length){el.innerHTML='<div class="empty">Nenhum fornecedor.</div>';return;}el.innerHTML='<div class="tbl-wrap"><table class="dt"><thead><tr><th>Nome</th><th>Tipo</th><th>CNPJ</th><th>Contato</th><th></th></tr></thead><tbody>'+fornecedores.map(f=>`<tr><td>${f.nome}</td><td>${tipoLabel(f.tipo)}</td><td>${f.doc||'-'}</td><td>${f.contato||'-'}</td><td><button class="bd" onclick="delForn('${f.id}')">✕</button></td></tr>`).join('')+'</tbody></table></div>';}
+async function delForn(id){if(!confirm('Remover fornecedor?'))return;await db.from('fornecedores').delete().eq('id',id);fornecedores=fornecedores.filter(f=>f.id!==id);renderFornecedores();preencherSelectFornecedores();}
+function preencherSelectFornecedores(){[['ae-cia','aereo'],['ae-forn','aereo'],['ho-forn','hospedagem'],['tr-forn','transfer']].forEach(([sid,tipo])=>{const sel=document.getElementById(sid);if(!sel)return;sel.innerHTML='<option value="">Selecione...</option>'+fornecedores.filter(f=>f.tipo===tipo||f.tipo==='todos').map(f=>`<option value="${f.id}">${f.nome}</option>`).join('');});}
+
+// ── PARCELAMENTO ──────────────────────────────────────────
+function setTipo(t,btn){tipoAtual=t;['aereo','hospedagem','transfer'].forEach(x=>document.getElementById('form-'+x).style.display=x===t?'block':'none');document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');}
+function setParc(modo){modoParc=modo;document.getElementById('tog-avista').classList.toggle('active',modo==='avista');document.getElementById('tog-parcelado').classList.toggle('active',modo==='parcelado');const area=document.getElementById('parcelas-area');if(modo==='parcelado'){area.style.display='block';numParc=2;buildParcelasGrid();}else{area.style.display='none';numParc=1;}atualizaResumoPgto();}
+function buildParcelasGrid(){const grid=document.getElementById('parcelas-grid');if(!grid)return;grid.innerHTML='';const venda=parseFloat(document.getElementById('v-venda').value)||0;for(let i=2;i<=10;i++){const btn=document.createElement('button');btn.className='parcela-btn'+(i===numParc?' selected':'');btn.innerHTML=`<div style="font-weight:600">${i}x</div>${venda?`<div style="font-size:10px;opacity:.8">${fmtBRL(venda/i)}</div>`:''}`;btn.onclick=()=>{numParc=i;buildParcelasGrid();atualizaResumoPgto();};grid.appendChild(btn);}}
+function onPgtoChange(){const pgto=v('v-pgto');const noParc=['PIX','Transferência bancária','Cartão de débito'];if(noParc.includes(pgto)){setParc('avista');document.getElementById('tog-parcelado').disabled=true;document.getElementById('tog-parcelado').style.opacity='.4';}else{document.getElementById('tog-parcelado').disabled=false;document.getElementById('tog-parcelado').style.opacity='1';}atualizaResumoPgto();}
+function atualizaResumoPgto(){const venda=parseFloat(document.getElementById('v-venda').value)||0;document.getElementById('res-forma').textContent=v('v-pgto');if(modoParc==='avista'){document.getElementById('res-mod').textContent='À vista';document.getElementById('res-lbl').textContent='Valor total';document.getElementById('res-val').textContent=fmtBRL(venda);}else{document.getElementById('res-mod').textContent=`Parcelado em ${numParc}x`;document.getElementById('res-lbl').textContent=`${numParc}x de`;document.getElementById('res-val').textContent=fmtBRL(venda/numParc);}if(modoParc==='parcelado')buildParcelasGrid();}
+
+// ── CÁLCULO ───────────────────────────────────────────────
+function gerarNumPedido(){const n=vendas.length+1;sv('v-ref','FT'+String(n).padStart(7,'0'));}
+function calcLucro(){const fee=parseFloat(document.getElementById('v-fee').value)||0,mg=parseFloat(document.getElementById('v-margem').value)||0,c=parseFloat(document.getElementById('v-custo').value)||0;sv('v-venda',(c+fee+mg).toFixed(2));const base=fee+mg,imp=base*(parseFloat(cfg.aliq||6)/100);document.getElementById('calc-base').textContent=fmtBRL(base);document.getElementById('calc-imp').textContent='- '+fmtBRL(imp);document.getElementById('calc-lucro').textContent=fmtBRL(base-imp);atualizaResumoPgto();}
+function calcLucroRev(){const c=parseFloat(document.getElementById('v-custo').value)||0,vd=parseFloat(document.getElementById('v-venda').value)||0,base=vd-c,imp=base*(parseFloat(cfg.aliq||6)/100);document.getElementById('calc-base').textContent=fmtBRL(base);document.getElementById('calc-imp').textContent='- '+fmtBRL(imp);document.getElementById('calc-lucro').textContent=fmtBRL(base-imp);atualizaResumoPgto();}
+
+// ── SALVAR VENDA ──────────────────────────────────────────
+async function salvarVenda(){
+  const cidId=v('v-cliente');if(!cidId){showAlert('venda-alert','Selecione um cliente.','i');return;}
+  const venda=parseFloat(document.getElementById('v-venda').value)||0;if(!venda){showAlert('venda-alert','Informe o valor de venda.','i');return;}
+  let det={};
+  if(tipoAtual==='aereo'){if(!v('ae-pax')){showAlert('venda-alert','Informe o passageiro.','i');return;}const fId=v('ae-cia');const fn=fornecedores.find(f=>f.id===fId);det={pax:v('ae-pax'),doc:v('ae-doc'),nasc:v('ae-nasc'),nac:v('ae-nac'),tel:v('ae-tel'),email:v('ae-email'),pnr:v('ae-pnr'),cia:fn?fn.nome:v('ae-cia'),voo:v('ae-voo'),classe:v('ae-classe'),orig:v('ae-orig'),dest:v('ae-dest'),bag:v('ae-bag'),ida:v('ae-ida'),volta:v('ae-volta'),bilhete:v('ae-bilhete'),solic:v('ae-solic')};}
+  else if(tipoAtual==='hospedagem'){det={hosp:v('ho-hosp'),doc:v('ho-doc'),num:v('ho-num'),hotel:v('ho-hotel'),end:v('ho-end'),cat:v('ho-cat'),chkin:v('ho-in'),chkout:v('ho-out'),quarto:v('ho-quarto'),regime:v('ho-regime'),dias:v('ho-dias')};}
+  else{det={pax:v('tr-pax'),tel:v('tr-tel'),num:v('tr-num'),tipo:v('tr-tipo'),veiculo:v('tr-veiculo'),orig:v('tr-orig'),dest:v('tr-dest'),data:v('tr-data'),obs:v('tr-obs')};}
+  const nomePax=det.pax||det.hosp||'';
+  if(nomePax&&!passageiros.find(p=>p.nome.toLowerCase()===nomePax.toLowerCase())){const{data:pd}=await db.from('passageiros').insert([{nome:nomePax,doc:det.doc||null,nasc:det.nasc||null,nac:det.nac||null,tel:det.tel||null,email:det.email||null}]).select();if(pd)passageiros.push(pd[0]);}
+  const now=new Date();const mes=`${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
+  const fee=parseFloat(document.getElementById('v-fee').value)||0,mg=parseFloat(document.getElementById('v-margem').value)||0;
+  const vencVal=v('v-venc');
+  const payload={ref:v('v-ref'),cliente_id:cidId,tipo:tipoAtual,custo:parseFloat(document.getElementById('v-custo').value)||0,fee,margem:mg,venda,pgto:v('v-pgto'),pgto_modalidade:modoParc,pgto_parcelas:modoParc==='parcelado'?numParc:1,pgto_valor_parcela:modoParc==='parcelado'?(venda/numParc):venda,status:v('v-status'),vencimento:vencVal||null,obs:v('v-obs')||null,mes,detalhes:det};
+  sync('⏳ Salvando...');
+  const{data,error}=await db.from('vendas').insert([payload]).select('*,clientes(nome,seq)');
+  if(error){showAlert('venda-alert','Erro ao salvar: '+error.message,'e');sync('❌ Erro');return;}
+  vendas.unshift(data[0]);sync('✅ Salvo no banco');limparVenda();showAlert('venda-alert','Venda salva com sucesso!','s');atualizaDash();
+}
+function limparVenda(){['v-custo','v-fee','v-margem','v-venda','ae-pax','ae-doc','ae-nasc','ae-nac','ae-tel','ae-email','ae-pnr','ae-voo','ae-orig','ae-dest','ae-ida','ae-volta','ae-bilhete','ae-solic','ho-hosp','ho-doc','ho-hotel','ho-end','ho-in','ho-out','ho-quarto','tr-pax','tr-tel','tr-orig','tr-dest','v-obs'].forEach(id=>{const el=document.getElementById(id);if(el){el.value='';el.classList.remove('autofilled');}});document.getElementById('calc-base').textContent='R$ 0,00';document.getElementById('calc-imp').textContent='- R$ 0,00';document.getElementById('calc-lucro').textContent='R$ 0,00';sv('v-cliente','');const box=document.getElementById('pax-ae-info');if(box)box.style.display='none';setParc('avista');sv('v-pgto','PIX');onPgtoChange();gerarNumPedido();}
+
+// ── DESPESAS CRUD ─────────────────────────────────────────
+async function salvarDespesa(){const desc=v('dp-desc'),valor=parseFloat(document.getElementById('dp-valor').value)||0,data=v('dp-data');if(!desc||!valor||!data){showAlert('desp-alert','Preencha descrição, valor e data.','i');return;}const dt=new Date(data+'T12:00:00');const mes=`${String(dt.getMonth()+1).padStart(2,'0')}/${dt.getFullYear()}`;const{data:rd,error}=await db.from('despesas').insert([{descricao:desc,categoria:v('dp-cat'),tipo:v('dp-tipo'),valor,data,mes,status:v('dp-status'),obs:v('dp-obs')||null}]).select();if(error){showAlert('desp-alert','Erro: '+error.message,'e');return;}despesas.unshift(rd[0]);['dp-desc','dp-valor','dp-data','dp-obs'].forEach(id=>sv(id,''));showAlert('desp-alert','Despesa lançada!','s');populateMesFiltro();renderDespesas();atualizaDash();}
+async function replicarFixas(){const now=new Date();const ma=`${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;const ant=new Date(now.getFullYear(),now.getMonth()-1,1);const mant=`${String(ant.getMonth()+1).padStart(2,'0')}/${ant.getFullYear()}`;const fx=despesas.filter(d=>d.tipo==='fixa'&&d.mes===mant);if(!fx.length){showAlert('desp-alert','Nenhuma despesa fixa no mês anterior.','i');return;}const ja=despesas.filter(d=>d.tipo==='fixa'&&d.mes===ma).map(d=>d.descricao);const novas=fx.filter(d=>!ja.includes(d.descricao));if(!novas.length){showAlert('desp-alert','Todas as fixas já foram lançadas.','i');return;}const pr=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;const inserts=novas.map(d=>({descricao:d.descricao,categoria:d.categoria,tipo:'fixa',valor:d.valor,data:pr,mes:ma,status:'pendente',obs:'Replicado automaticamente'}));const{data:rd,error}=await db.from('despesas').insert(inserts).select();if(error){showAlert('desp-alert','Erro: '+error.message,'e');return;}despesas.unshift(...rd);populateMesFiltro();renderDespesas();atualizaDash();showAlert('desp-alert',`${novas.length} despesa(s) fixa(s) replicada(s)!`,'s');}
+function populateMesFiltro(){const sel=document.getElementById('dp-mes-filtro');if(!sel)return;const meses=[...new Set(despesas.map(d=>d.mes).filter(Boolean))].sort().reverse();const atual=getMesAtual();sel.innerHTML=[...new Set([atual,...meses])].map(m=>`<option value="${m}">${m}</option>`).join('');}
+function renderDespesas(){populateMesFiltro();const sel=document.getElementById('dp-mes-filtro');const mes=sel?sel.value:getMesAtual();const f=despesas.filter(d=>d.mes===mes);const el=document.getElementById('lista-desp');if(!f.length){el.innerHTML='<div class="empty">Nenhuma despesa neste mês.</div>';return;}const tot=f.reduce((s,d)=>s+parseFloat(d.valor),0);el.innerHTML=`<div class="tbl-wrap"><table class="dt"><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Tipo</th><th>Valor</th><th>Status</th><th></th></tr></thead><tbody>`+f.map(d=>`<tr><td>${fmtData(d.data)}</td><td>${d.descricao}</td><td>${tipoLabel(d.categoria)}</td><td><span class="badge b-${d.tipo}">${d.tipo==='fixa'?'Fixa':'Pontual'}</span></td><td>${fmtBRL(d.valor)}</td><td><span class="badge b-${d.status==='pago'?'pago':'pendente'}">${d.status==='pago'?'Pago':'A pagar'}</span></td><td><button class="bd" onclick="delDesp('${d.id}')">✕</button></td></tr>`).join('')+`</tbody><tfoot><tr><td colspan="4" style="font-weight:600;padding:8px">Total do mês</td><td style="font-weight:600;padding:8px">${fmtBRL(tot)}</td><td colspan="2"></td></tr></tfoot></table></div>`;}
+async function delDesp(id){if(!confirm('Remover despesa?'))return;await db.from('despesas').delete().eq('id',id);despesas=despesas.filter(d=>d.id!==id);populateMesFiltro();renderDespesas();atualizaDash();}
+
+// ── DASHBOARD ─────────────────────────────────────────────
+function atualizaDash(){
+  const now=new Date();const mes=getMesAtual();const aliq=parseFloat(cfg.aliq||6)/100;
+  const vm=vendas.filter(vd=>vd.mes===mes);const dm=despesas.filter(d=>d.mes===mes);
+  const receita=vm.reduce((s,vd)=>s+parseFloat(vd.venda||0),0);
+  const lucroBase=vm.reduce((s,vd)=>s+parseFloat(vd.fee||0)+parseFloat(vd.margem||0),0);
+  const imposto=lucroBase*aliq;const despTotal=dm.reduce((s,d)=>s+parseFloat(d.valor||0),0);
+  const lucroLiq=lucroBase-imposto-despTotal;
+  const aReceber=vendas.filter(vd=>vd.status!=='pago').reduce((s,vd)=>s+parseFloat(vd.venda||0),0);
+  document.getElementById('m-receita').textContent=fmtBRL(receita);
+  document.getElementById('m-base').textContent=fmtBRL(lucroBase);
+  document.getElementById('m-imposto').textContent=fmtBRL(imposto);
+  document.getElementById('m-lucro').textContent=fmtBRL(lucroLiq);
+  document.getElementById('m-lucro').className='mc-val '+(lucroLiq>=0?'green':'red');
+  document.getElementById('m-desp').textContent=fmtBRL(despTotal);
+  document.getElementById('m-receber').textContent=fmtBRL(aReceber);
+  document.getElementById('m-margem').textContent=(lucroBase?lucroLiq/lucroBase*100:0).toFixed(1)+'%';
+  document.getElementById('m-pax').textContent=passageiros.length;
+  document.getElementById('dash-info').innerHTML=`<strong>📅 ${MESES[now.getMonth()]} ${now.getFullYear()}</strong> &nbsp;|&nbsp; Simples 6% sobre fee+margem &nbsp;|&nbsp; 🧳 ${passageiros.length} passageiro(s) no banco`;
+  const dv=document.getElementById('dash-vendas');
+  const ult=vendas.slice(0,6);
+  dv.innerHTML=ult.length?'<div class="tbl-wrap"><table class="dt"><thead><tr><th>Ref.</th><th>Passageiro</th><th>Cliente</th><th>Tipo</th><th>Pagamento</th><th>Valor</th><th>Status</th></tr></thead><tbody>'+ult.map(vd=>{const d=vd.detalhes||{};const pax=d.pax||d.hosp||'-';const cl=vd.clientes?.nome||'-';const pgtoStr=vd.pgto_modalidade==='parcelado'?`${vd.pgto} ${vd.pgto_parcelas}x ${fmtBRL(vd.pgto_valor_parcela)}`:vd.pgto||'-';return`<tr><td>${vd.ref}</td><td>${pax}</td><td>${cl}</td><td><span class="badge b-${vd.tipo}">${tipoLabel(vd.tipo)}</span></td><td style="font-size:11px">${pgtoStr}</td><td>${fmtBRL(vd.venda)}</td><td><span class="badge b-${vd.status}">${vd.status}</span></td></tr>`;}).join('')+'</tbody></table></div>':'<div class="empty">Nenhuma venda ainda.</div>';
+  const dd=document.getElementById('dash-desp');const ultD=despesas.slice(0,6);
+  dd.innerHTML=ultD.length?'<div class="tbl-wrap"><table class="dt"><thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Valor</th></tr></thead><tbody>'+ultD.map(d=>`<tr><td>${fmtData(d.data)}</td><td>${d.descricao}</td><td><span class="badge b-${d.tipo}">${d.tipo==='fixa'?'Fixa':'Pontual'}</span></td><td>${fmtBRL(d.valor)}</td></tr>`).join('')+'</tbody></table></div>':'<div class="empty">Nenhuma despesa ainda.</div>';
+}
+
+// ── DRE ───────────────────────────────────────────────────
+async function gerarDRE(){
+  const mes=parseInt(document.getElementById('dre-mes').value),ano=parseInt(document.getElementById('dre-ano').value);
+  const mesStr=`${String(mes+1).padStart(2,'0')}/${ano}`;const aliq=parseFloat(cfg.aliq||6)/100;
+  sync('⏳ Carregando dados...');
+  const{data:vm}=await db.from('vendas').select('*').eq('mes',mesStr);
+  const{data:dm}=await db.from('despesas').select('*').eq('mes',mesStr);
+  sync('✅ Dados carregados');
+  const vArr=vm||[],dArr=dm||[];
+  const recBruta=vArr.reduce((s,v)=>s+parseFloat(v.venda||0),0),custoTotal=vArr.reduce((s,v)=>s+parseFloat(v.custo||0),0);
+  const feeTotal=vArr.reduce((s,v)=>s+parseFloat(v.fee||0),0),mgTotal=vArr.reduce((s,v)=>s+parseFloat(v.margem||0),0);
+  const lucroBase=feeTotal+mgTotal,imposto=lucroBase*aliq;
+  const despFixas=dArr.filter(d=>d.tipo==='fixa').reduce((s,d)=>s+parseFloat(d.valor||0),0);
+  const despPont=dArr.filter(d=>d.tipo==='pontual').reduce((s,d)=>s+parseFloat(d.valor||0),0);
+  const despTotal=despFixas+despPont,despCat={};dArr.forEach(d=>despCat[d.categoria]=(despCat[d.categoria]||0)+parseFloat(d.valor||0));
+  const lucroLiq=lucroBase-imposto-despTotal,margem=lucroBase?(lucroLiq/lucroBase*100):0;
+  const logoHtml=cfg.logo?`<img src="${cfg.logo}" style="max-height:50px;max-width:90px;object-fit:contain" alt="">`:'';
+  document.getElementById('dre-resultado').innerHTML=`<div class="dre"><div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:10px">${logoHtml}<div><h1>PACE VACATION</h1><h2>${cfg.razao}</h2></div></div><div class="dre-period">DRE — ${MESES[mes]} de ${ano} &nbsp;|&nbsp; Simples Nacional 6% sobre fee+margem (Nota de Débito)</div><div class="dre-sec"><h3>1. Volume intermediado (informativo)</h3><div class="dre-row sub"><span>Total faturado aos clientes</span><span>${fmtBRL(recBruta)}</span></div><div class="dre-row sub"><span>(-) Custo dos fornecedores repassado</span><span>(${fmtBRL(custoTotal)})</span></div><div class="dre-row tot"><span>= Valor intermediado</span><span>${fmtBRL(recBruta-custoTotal)}</span></div></div><div class="dre-sec"><h3>2. Receita própria da agência — base tributável</h3><div class="dre-row sub"><span>Fee de agência</span><span>${fmtBRL(feeTotal)}</span></div><div class="dre-row sub"><span>Margem embutida</span><span>${fmtBRL(mgTotal)}</span></div><div class="dre-row tot blue"><span>= Total fee + margem</span><span>${fmtBRL(lucroBase)}</span></div></div><div class="dre-sec"><h3>3. Simples Nacional ${cfg.aliq||6}%</h3><div class="dre-row sub"><span>DAS mensal (sobre fee+margem)</span><span>(${fmtBRL(imposto)})</span></div><div class="dre-row tot green"><span>= Lucro após imposto</span><span>${fmtBRL(lucroBase-imposto)}</span></div></div><div class="dre-sec"><h3>4. Despesas operacionais</h3><div class="dre-row sub"><span>Despesas fixas</span><span>(${fmtBRL(despFixas)})</span></div><div class="dre-row sub"><span>Despesas pontuais</span><span>(${fmtBRL(despPont)})</span></div>${Object.entries(despCat).map(([c,vl])=>`<div class="dre-row sub2"><span>↳ ${tipoLabel(c)}</span><span>${fmtBRL(vl)}</span></div>`).join('')}<div class="dre-row tot amber"><span>= Total despesas</span><span>(${fmtBRL(despTotal)})</span></div></div><div class="dre-hl"><span style="font-size:14px;font-weight:700">= LUCRO LÍQUIDO DO MÊS</span><span style="font-size:20px;font-weight:700;color:${lucroLiq>=0?'#1D9E75':'#E24B4A'}">${fmtBRL(lucroLiq)}</span></div><div style="display:flex;justify-content:space-between;margin-top:8px;padding:8px 14px;background:#f8f8f8;border-radius:6px;font-size:12px"><span>Margem líquida</span><span style="font-weight:600">${margem.toFixed(2)}%</span></div><div class="dre-info">✅ Base de cálculo confirmada com contador. Simples de ${cfg.aliq||6}% sobre fee+margem (Nota de Débito). Custo fornecedores (${fmtBRL(custoTotal)}) não compõe receita própria.<br>Gerado em: ${new Date().toLocaleDateString('pt-BR')} — PACE VACATION — CNPJ: ${cfg.cnpj}</div></div><div class="no-print br" style="margin-top:12px"><button class="bp" onclick="window.print()">🖨 Imprimir / Salvar PDF</button></div>`;}
+
+// ── RELATÓRIO + FATURA ────────────────────────────────────
+async function gerarRelatorio(){
+  const cId=v('r-cliente'),tipo=v('r-tipo'),status=v('r-status');
+  sync('⏳ Carregando...');
+  let q=db.from('vendas').select('*,clientes(nome,seq)').order('created_at',{ascending:false});
+  if(cId)q=q.eq('cliente_id',cId);
+  if(tipo)q=q.eq('tipo',tipo);
+  if(status)q=q.eq('status',status);
+  const{data:f,error}=await q;sync('✅ Pronto');
+  if(error||!f?.length){document.getElementById('rel-resultado').innerHTML='<div class="card"><div class="empty">Nenhuma venda encontrada.</div></div>';return;}
+  const aliq=parseFloat(cfg.aliq||6)/100;
+  const tot=f.reduce((s,v)=>s+parseFloat(v.venda||0),0),base=f.reduce((s,v)=>s+parseFloat(v.fee||0)+parseFloat(v.margem||0),0),imp=base*aliq,ll=base-imp;
+  document.getElementById('rel-resultado').innerHTML=`<div class="card"><div class="g4" style="margin-bottom:12px"><div class="mc"><div class="mc-lbl">Total faturado</div><div class="mc-val blue">${fmtBRL(tot)}</div></div><div class="mc"><div class="mc-lbl">Fee+Margem</div><div class="mc-val amber">${fmtBRL(base)}</div></div><div class="mc"><div class="mc-lbl">Imposto 6%</div><div class="mc-val red">${fmtBRL(imp)}</div></div><div class="mc"><div class="mc-lbl">Lucro líquido</div><div class="mc-val green">${fmtBRL(ll)}</div></div></div><div class="tbl-wrap"><table class="dt"><thead><tr><th>Ref.</th><th>Data</th><th>Passageiro</th><th>Cliente</th><th>Tipo</th><th>Pagamento</th><th>Fee+M</th><th>Venda</th><th>Lucro</th><th>Status</th></tr></thead><tbody>`+f.map(vd=>{const d=vd.detalhes||{};const pax=d.pax||d.hosp||'-';const b=parseFloat(vd.fee||0)+parseFloat(vd.margem||0);const i=b*aliq;const pgtoStr=vd.pgto_modalidade==='parcelado'?`${vd.pgto} ${vd.pgto_parcelas}x`:vd.pgto||'-';return`<tr><td>${vd.ref}</td><td>${new Date(vd.created_at).toLocaleDateString('pt-BR')}</td><td>${pax}</td><td>${vd.clientes?.nome||'-'}</td><td><span class="badge b-${vd.tipo}">${tipoLabel(vd.tipo)}</span></td><td style="font-size:11px">${pgtoStr}</td><td>${fmtBRL(b)}</td><td>${fmtBRL(vd.venda)}</td><td style="color:#1D9E75;font-weight:600">${fmtBRL(b-i)}</td><td><span class="badge b-${vd.status}">${vd.status}</span></td></tr>`;}).join('')+'</tbody></table></div></div>';}
+
+async function exportarCSV(){
+  const cId=v('r-cliente'),tipo=v('r-tipo'),status=v('r-status');
+  let q=db.from('vendas').select('*,clientes(nome)').order('created_at',{ascending:false});
+  if(cId)q=q.eq('cliente_id',cId);if(tipo)q=q.eq('tipo',tipo);if(status)q=q.eq('status',status);
+  const{data:f}=await q;if(!f?.length){alert('Nenhuma venda encontrada.');return;}
+  const aliq=parseFloat(cfg.aliq||6)/100;
+  const rows=f.map(vd=>{const d=vd.detalhes||{};const pax=d.pax||d.hosp||'';const b=parseFloat(vd.fee||0)+parseFloat(vd.margem||0);const i=b*aliq;const pgto=vd.pgto_modalidade==='parcelado'?`${vd.pgto} ${vd.pgto_parcelas}x`:vd.pgto||'';return[new Date(vd.created_at).toLocaleDateString('pt-BR'),vd.ref,pax,vd.clientes?.nome||'',tipoLabel(vd.tipo),vd.custo,vd.fee||0,vd.margem||0,b.toFixed(2),vd.venda,pgto,vd.status,i.toFixed(2),(b-i).toFixed(2)].join(',');});
+  const blob=new Blob(['\uFEFF'+'Data,Ref,Passageiro,Cliente,Tipo,Custo,Fee,Margem,Fee+M,Venda,Pagamento,Status,Imposto,LucroLiq\n'+rows.join('\n')],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='pace_vacation_vendas.csv';a.click();}
+
+function numExtenso(n){const u=['','um','dois','três','quatro','cinco','seis','sete','oito','nove','dez','onze','doze','treze','quatorze','quinze','dezesseis','dezessete','dezoito','dezenove'];const d=['','','vinte','trinta','quarenta','cinquenta','sessenta','setenta','oitenta','noventa'];const c=['','cem','duzentos','trezentos','quatrocentos','quinhentos','seiscentos','setecentos','oitocentos','novecentos'];const f3=(x)=>{const h=Math.floor(x/100),dz=x%100,t=Math.floor(dz/10),un=dz%10;let s='';if(h)s+=dz===0&&h===1?'cem':c[h];if(dz&&h)s+=' e ';if(dz<20&&dz>0)s+=u[dz];else if(dz>=20){s+=d[t];if(un)s+=' e '+u[un];}return s;};const i=Math.floor(n),ct=Math.round((n-i)*100);let r='';const mi=Math.floor(i/1000),re=i%1000;if(mi)r+=(mi===1?'um mil':f3(mi)+' mil');if(re){if(mi)r+=' e ';r+=f3(re);}r+=' reais';if(ct)r+=` e ${u[ct]||f3(ct)} centavos`;return r.charAt(0).toUpperCase()+r.slice(1);}
+
+async function gerarFatura(){
+  const cId=v('r-cliente');if(!cId){document.getElementById('rel-resultado').innerHTML='<div class="alert alert-i">Selecione um cliente nos filtros para gerar a fatura.</div>';return;}
+  const cl=clientes.find(c=>c.id===cId);
+  const tipo=v('r-tipo'),status=v('r-status');
+  let q=db.from('vendas').select('*').eq('cliente_id',cId);
+  if(tipo)q=q.eq('tipo',tipo);if(status)q=q.eq('status',status);
+  const{data:f}=await q;
+  if(!f?.length){document.getElementById('fatura-area').innerHTML='<div class="alert alert-i">Nenhuma venda encontrada para este cliente.</div>';return;}
+  const total=f.reduce((s,vd)=>s+parseFloat(vd.venda||0),0);
+  const p=f[0];const emissao=new Date(p.created_at).toLocaleDateString('pt-BR');
+  const venc=p.vencimento?new Date(p.vencimento+'T12:00:00').toLocaleDateString('pt-BR'):'';
+  const enc=parseFloat(cfg.encargos)||0.32;
+  const logoHtml=cfg.logo?`<img src="${cfg.logo}" style="max-height:70px;max-width:90px;object-fit:contain" alt="">`:'<div style="width:80px;height:60px;border:1px solid #ccc;display:flex;align-items:center;justify-content:center;font-size:9px;color:#999;text-align:center">Logo</div>';
+  const ndRows=f.map(vd=>{const d=vd.detalhes||{};const pax=vd.tipo==='aereo'?d.pax:vd.tipo==='hospedagem'?d.hosp:d.pax;const rota=vd.tipo==='aereo'?`${d.orig||''}/${d.dest||''}`:vd.tipo==='hospedagem'?d.hotel||'':d.tipo||'';const periodo=vd.tipo==='aereo'?d.ida||'':vd.tipo==='hospedagem'?`${d.chkin||''} / ${d.chkout||''}`:d.data||'';const pgtoLine=vd.pgto_modalidade==='parcelado'?`${vd.pgto} — ${vd.pgto_parcelas}x de ${fmtBRL(vd.pgto_valor_parcela)}`:vd.pgto||'';
+  return`<tr><td rowspan="3" style="font-size:10px;vertical-align:top">${vd.ref}</td><td colspan="2">${pax||''}</td><td>${tipoLabel(vd.tipo)}</td><td>${emissao}</td><td>${vd.tipo==='aereo'?d.bilhete||'':'-'}</td><td></td><td></td><td colspan="2">${periodo}</td><td colspan="2">${rota}</td></tr><tr><td>${vd.tipo==='aereo'?d.pnr||'':''}</td><td style="font-size:10px">${vd.tipo==='aereo'?d.cia||'':'-'}</td><td style="text-align:right">${fmtBRL(vd.custo)}</td><td>1,000000</td><td style="text-align:right">${fmtBRL(vd.venda)}</td><td colspan="4" style="font-size:10px">${pgtoLine}</td><td style="text-align:right">0,00</td><td style="text-align:right">0,00</td><td style="text-align:right"><strong>${fmtBRL(vd.venda)}</strong></td></tr><tr><td colspan="11" style="font-size:10px;color:#666">${vd.obs||''}</td></tr>`;}).join('');
+  document.getElementById('fatura-area').innerHTML=`<div style="font-family:Arial,sans-serif;font-size:11px;color:#000;background:#fff;padding:20px;max-width:780px;margin:0 auto;border:1px solid #eee;border-radius:8px;margin-top:16px">
+  <div style="display:flex;align-items:flex-start;gap:20px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #000"><div>${logoHtml}</div><div style="flex:1"><div style="font-size:18px;font-weight:700">PACE VACATION</div><div style="font-size:11px">${cfg.razao}</div><div style="display:grid;grid-template-columns:1fr 1fr;font-size:10px;margin-top:4px"><div>CNPJ: ${cfg.cnpj}</div><div>Inscr. Mun: ${cfg.inscmun}</div><div>${cfg.end}</div><div>Cep: ${cfg.cep}, ${cfg.cidade}</div><div>CADASTUR: ${cfg.cadastur}</div><div></div><div>Fone: ${cfg.tel}</div><div>E-Mail: ${cfg.email}</div></div></div><div style="text-align:right;font-size:12px;font-weight:600">${p.ref}</div></div>
+  <table style="width:100%;border-collapse:collapse;margin:8px 0;font-size:11px"><thead><tr><th style="border:1px solid #000;padding:4px 6px;background:#f0f0f0">N° Fatura</th><th style="border:1px solid #000;padding:4px 6px;background:#f0f0f0">Valor [R$]</th><th style="border:1px solid #000;padding:4px 6px;background:#f0f0f0">Emissão</th><th style="border:1px solid #000;padding:4px 6px;background:#f0f0f0">Vencimento</th><th style="border:1px solid #000;padding:4px 6px;background:#f0f0f0">Para uso da Inst. Financeira</th></tr></thead><tbody><tr><td style="border:1px solid #000;padding:4px 6px;text-align:center"><strong>${p.ref}</strong></td><td style="border:1px solid #000;padding:4px 6px;text-align:center;font-size:14px;font-weight:700">${fmtBRL(total)}</td><td style="border:1px solid #000;padding:4px 6px;text-align:center">${emissao}</td><td style="border:1px solid #000;padding:4px 6px;text-align:center">${venc}</td><td style="border:1px solid #000;padding:4px 6px"></td></tr></tbody></table>
+  <div style="border:1px solid #000;padding:6px 8px;font-size:10px;margin:4px 0"><div>Encargos p/dia de R$ ${enc.toFixed(2)} após ${venc}</div><div><strong>Pagador:</strong> ${cl?.seq||'000001'} – ${cl?.nome||''}</div>${cl?.ac?`<div style="margin-left:78px">A/C.: ${cl.ac}</div>`:''}<div><strong>Endereço:</strong> ${cl?.endereco||''}</div><div style="display:flex;gap:16px"><span><strong>Bairro:</strong> ${cl?.bairro||''}</span><span><strong>Cidade:</strong> ${cl?.cidade||''}</span><span>${cl?.cep||''}</span></div><div><strong>CNPJ:</strong> ${cl?.doc||''}</div><div><strong>Praça de pagamento:</strong> ${cl?.praca||cl?.cidade||''}</div></div>
+  <div style="border:1px solid #000;padding:5px 8px;font-size:10px;margin:4px 0;display:flex;gap:10px"><strong style="min-width:80px">Valor por extenso</strong><span>${numExtenso(total)}</span></div>
+  <div style="border:1px solid #000;padding:5px 8px;font-size:10px;margin:4px 0">RECONHECEMOS A EXATIDÃO DESTA DUPLICATA DE SERVIÇOS TURÍSTICOS NA IMPORTÂNCIA ACIMA QUE PAGAREMOS A PACE VACATION, OU A SUA ORDEM NA PRAÇA E VENCIMENTOS INDICADOS.<br><br>Aceite: _________________________________________________ &nbsp;&nbsp; Data: ______ / ______ / ______</div>
+  <div style="font-weight:700;font-size:11px;margin:6px 0">OBRIGADO POR FAZER NEGÓCIOS CONOSCO!</div>
+  <div style="text-align:center;font-weight:700;font-size:13px;margin:10px 0 4px">Notas de Débito</div>
+  <table style="width:100%;border-collapse:collapse;font-size:10px"><thead><tr><th style="border:1px solid #999;padding:3px 4px;background:#f0f0f0">Nº Pedido</th><th colspan="2" style="border:1px solid #999;padding:3px 4px;background:#f0f0f0">Passageiro</th><th style="border:1px solid #999;padding:3px 4px;background:#f0f0f0">Tipo</th><th style="border:1px solid #999;padding:3px 4px;background:#f0f0f0">Emissão</th><th style="border:1px solid #999;padding:3px 4px;background:#f0f0f0">Bilhete</th><th colspan="2" style="border:1px solid #999;padding:3px 4px;background:#f0f0f0"></th><th colspan="2" style="border:1px solid #999;padding:3px 4px;background:#f0f0f0">Período</th><th colspan="2" style="border:1px solid #999;padding:3px 4px;background:#f0f0f0">Rota/Produto</th></tr></thead><tbody>${ndRows}</tbody><tfoot><tr style="background:#f0f0f0"><td colspan="2" style="border:1px solid #999;padding:3px 5px"><strong>Total</strong></td><td colspan="3" style="border:1px solid #999;padding:3px 5px"></td><td style="border:1px solid #999;padding:3px 5px;text-align:right"><strong>${fmtBRL(total)}</strong></td><td colspan="5" style="border:1px solid #999;padding:3px 5px"></td><td style="border:1px solid #999;padding:3px 5px;text-align:right"><strong>${fmtBRL(total)}</strong></td></tr></tfoot></table>
+  <div style="text-align:right;font-weight:700;font-size:12px;margin-top:8px;padding-top:6px;border-top:1px solid #000">Total da Fatura &nbsp;&nbsp; ${fmtBRL(total)}</div>
+  <div style="border:1px solid #1D9E75;border-radius:6px;padding:8px 12px;margin-top:10px;background:#f0faf5;font-size:10px"><strong style="color:#1D9E75;display:block;margin-bottom:4px">💰 Dados para pagamento</strong><div style="display:grid;grid-template-columns:1fr 1fr;gap:4px"><div><strong>Banco:</strong> ${cfg.banco}</div><div><strong>Agência:</strong> ${cfg.ag}</div><div><strong>Conta:</strong> ${cfg.cc}</div><div><strong>Chave PIX:</strong> ${cfg.pix}</div></div></div>
+  <div style="border-top:2px dashed #000;margin-top:12px;padding-top:6px;text-align:right;font-size:13px;font-style:italic;font-weight:600">Recibo do Pagador</div>
+  </div><div class="no-print br" style="margin-top:12px"><button class="bp" onclick="window.print()">🖨 Imprimir / Salvar PDF</button></div>`;}
+
+// ── CONFIG ────────────────────────────────────────────────
+function carregarConfig(){['nome','razao','cnpj','cadastur','inscmun','tel','email','cep','end','cidade','banco','ag','cc','pix','encargos','aliq','anexo'].forEach(k=>{const el=document.getElementById('cfg-'+k);if(el)el.value=k==='end'?(cfg.end||''):(cfg[k]||'');});if(cfg.logo){const p=document.getElementById('logo-preview');p.src=cfg.logo;p.style.display='block';}}
+async function salvarConfig(){const campos={nome:v('cfg-nome'),razao:v('cfg-razao'),cnpj:v('cfg-cnpj'),cadastur:v('cfg-cadastur'),inscmun:v('cfg-inscmun'),tel:v('cfg-tel'),email:v('cfg-email'),cep:v('cfg-cep'),endereco:v('cfg-end'),cidade:v('cfg-cidade'),banco:v('cfg-banco'),agencia:v('cfg-ag'),conta:v('cfg-cc'),pix:v('cfg-pix'),encargos:parseFloat(v('cfg-encargos'))||0.32,aliq:parseFloat(v('cfg-aliq'))||6,anexo:v('cfg-anexo'),logo:cfg.logo||null};sync('⏳ Salvando...');let error;if(cfg.cfgId){const r=await db.from('config').update(campos).eq('id',cfg.cfgId);error=r.error;}else{const r=await db.from('config').insert([campos]).select();error=r.error;if(r.data)cfg.cfgId=r.data[0].id;}if(error){showAlert('cfg-alert','Erro: '+error.message,'e');sync('❌ Erro');return;}Object.assign(cfg,{nome:campos.nome,razao:campos.razao,cnpj:campos.cnpj,cadastur:campos.cadastur,inscmun:campos.inscmun,tel:campos.tel,email:campos.email,cep:campos.cep,end:campos.endereco,cidade:campos.cidade,banco:campos.banco,ag:campos.agencia,cc:campos.conta,pix:campos.pix,encargos:campos.encargos,aliq:campos.aliq,anexo:campos.anexo});document.getElementById('agency-name').textContent=cfg.nome;sync('✅ Configurações salvas');showAlert('cfg-alert','Configurações salvas com sucesso!','s');}
+function uploadLogo(input){const file=input.files[0];if(!file)return;const r=new FileReader();r.onload=e=>{cfg.logo=e.target.result;const p=document.getElementById('logo-preview');p.src=e.target.result;p.style.display='block';document.getElementById('topbar-logo').src=e.target.result;document.getElementById('topbar-logo').style.display='inline';showAlert('cfg-alert','Logo carregada! Clique em Salvar para confirmar.','i');};r.readAsDataURL(file);}
+
+// ── START ─────────────────────────────────────────────────
+init();
+</script>
+</body></html>
