@@ -647,7 +647,7 @@ function selPax(iid,lid,paxId){
   if(iid==='ho-hosp')sv('ho-doc',p.doc||'');
   if(iid==='tr-pax')sv('tr-tel',p.tel||'');
 }
-document.addEventListener('click',e=>{if(!e.target.closest('.ac-wrap'))document.querySelectorAll('.ac-list').forEach(l=>l.style.display='none');});
+// ac-wrap click handler registrado no init
 
 // Blocos PAX
 function initPaxBlocks(){paxCount=0;document.getElementById('pax-blocks').innerHTML='';addPaxBlock();}
@@ -868,7 +868,7 @@ function abrirVenda(id){
   document.getElementById('modal-venda').classList.add('open');
 }
 function fecharModal(){document.getElementById('modal-venda').classList.remove('open');}
-document.getElementById('modal-venda').addEventListener('click',function(e){if(e.target===this)fecharModal();});
+// modal click handler registrado no init
 async function salvarEditVenda(id){
   const status=document.getElementById('ev-status-'+id)?.value,vencimento=document.getElementById('ev-venc-'+id)?.value||null,obs=document.getElementById('ev-obs-'+id)?.value.trim()||null;
   const{error}=await db.from('vendas').update({status,vencimento,obs}).eq('id',id);
@@ -1008,6 +1008,13 @@ function uploadLogo(input){const file=input.files[0];if(!file)return;const r=new
 // Número por extenso
 function numExtenso(n){const u=['','um','dois','três','quatro','cinco','seis','sete','oito','nove','dez','onze','doze','treze','quatorze','quinze','dezesseis','dezessete','dezoito','dezenove'];const d=['','','vinte','trinta','quarenta','cinquenta','sessenta','setenta','oitenta','noventa'];const c=['','cem','duzentos','trezentos','quatrocentos','quinhentos','seiscentos','setecentos','oitocentos','novecentos'];const f3=(x)=>{const h=Math.floor(x/100),dz=x%100,t=Math.floor(dz/10),un=dz%10;let s='';if(h)s+=dz===0&&h===1?'cem':c[h];if(dz&&h)s+=' e ';if(dz<20&&dz>0)s+=u[dz];else if(dz>=20){s+=d[t];if(un)s+=' e '+u[un];}return s;};const i=Math.floor(n),ct=Math.round((n-i)*100);let r='';const mi=Math.floor(i/1000),re=i%1000;if(mi)r+=(mi===1?'um mil':f3(mi)+' mil');if(re){if(mi)r+=' e ';r+=f3(re);}r+=' reais';if(ct)r+=' e '+(u[ct]||f3(ct))+' centavos';return r.charAt(0).toUpperCase()+r.slice(1);}
 
-checkSession();
+document.addEventListener('DOMContentLoaded', function() {
+  document.addEventListener('click', e=>{
+    if(!e.target.closest('.ac-wrap')) document.querySelectorAll('.ac-list').forEach(l=>l.style.display='none');
+  });
+  const mv = document.getElementById('modal-venda');
+  if(mv) mv.addEventListener('click', function(e){ if(e.target===this) fecharModal(); });
+  checkSession();
+});
 </script>
 </body></html>
