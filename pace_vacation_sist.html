@@ -162,6 +162,7 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
     <button class="nb" onclick="goTo('clientes',this)">👥 Clientes</button>
     <button class="nb" onclick="goTo('fornecedores',this)">🏢 Fornecedores</button>
     <button class="nb" onclick="goTo('faturas',this)">🧾 Faturas</button>
+    <button class="nb" onclick="goTo('cartoes',this)">💳 Cartões</button>
     <button class="nb" onclick="goTo('relatorio',this)">📄 Relatórios</button>
     <button class="nb" onclick="goTo('config',this)">⚙️ Config</button>
   </div>
@@ -276,7 +277,7 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
       <div class="calc-row total"><span>Lucro líquido desta venda</span><span id="c-luc" style="color:#1D9E75">R$ 0,00</span></div>
     </div>
     <div class="pgto-box">
-      <div style="font-size:12px;font-weight:600;color:#666;margin-bottom:10px;text-transform:uppercase">💳 Pagamento</div>
+      <div style="font-size:12px;font-weight:600;color:#666;margin-bottom:10px;text-transform:uppercase">💳 Recebimento do cliente</div>
       <div class="g2" style="margin-bottom:10px">
         <div class="field"><label>Forma</label><select id="v-pgto" onchange="onPgtoChange()"><option>PIX</option><option>Boleto</option><option>Transferência bancária</option><option>Cartão de crédito</option><option>Cartão de débito</option></select></div>
         <div class="field"><label>Status</label><select id="v-status"><option value="pendente">Pendente</option><option value="parcial">Parcial</option><option value="pago">Pago</option></select></div>
@@ -296,6 +297,43 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
       </div>
     </div>
     <div class="sep"></div>
+    <!-- PAGAMENTO AO FORNECEDOR -->
+    <div style="background:#fff8ed;border:1px solid #f0d080;border-radius:10px;padding:14px;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:600;color:#875500;margin-bottom:10px;text-transform:uppercase">🏦 Pagamento ao fornecedor (custo)</div>
+      <div class="g3" style="margin-bottom:10px">
+        <div class="field"><label>Cartão usado</label>
+          <div class="ac-wrap">
+            <input type="text" id="v-forn-cartao-txt" autocomplete="off" placeholder="Digite o cartão..." oninput="cartaoSearch(this,'ac-forn-cartao')">
+            <input type="hidden" id="v-forn-cartao-id">
+            <div class="ac-list" id="ac-forn-cartao" style="display:none"></div>
+          </div>
+        </div>
+        <div class="field"><label>Parcelas</label>
+          <select id="v-forn-parcelas" onchange="calcFornParcela()">
+            <option value="1">À vista</option>
+            <option value="2">2x</option><option value="3">3x</option><option value="4">4x</option>
+            <option value="5">5x</option><option value="6">6x</option><option value="7">7x</option>
+            <option value="8">8x</option><option value="9">9x</option><option value="10">10x</option>
+            <option value="11">11x</option><option value="12">12x</option>
+          </select>
+        </div>
+        <div class="field"><label>Valor por parcela</label>
+          <input type="text" id="v-forn-parc-val" readonly style="background:#f5f5f5;font-weight:600">
+        </div>
+      </div>
+      <div id="v-forn-fatura-box" style="display:none">
+        <div style="background:#fff;border:1px solid #e8c84a;border-radius:8px;padding:10px 14px;font-size:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+          <div>
+            <span style="color:#666">Fatura calculada:</span>
+            <strong id="v-forn-fatura-label" style="color:#875500;margin-left:6px">—</strong>
+          </div>
+          <div class="field" style="margin:0;min-width:160px">
+            <label style="font-size:11px;color:#888">Alterar vencimento (opcional)</label>
+            <input type="date" id="v-forn-venc" style="font-size:12px;padding:5px 8px">
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="field"><label>Observações</label><input type="text" id="v-obs"></div>
   </div>
   <div class="br">
@@ -514,6 +552,33 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
   </div>
 </div>
 
+
+<!-- CARTÕES -->
+<div class="section" id="sec-cartoes">
+  <div class="card">
+    <div class="ct">➕ Cadastrar cartão</div>
+    <div class="g3" style="margin-bottom:10px">
+      <div class="field"><label>Nome do cartão *</label><input type="text" id="ct-nome" placeholder="Ex: Nubank, Itaú Visa..."></div>
+      <div class="field"><label>Banco</label><input type="text" id="ct-banco" placeholder="Ex: Nubank, Itaú..."></div>
+      <div class="field"><label>Bandeira</label><select id="ct-bandeira"><option>Visa</option><option>Mastercard</option><option>Elo</option><option>Amex</option><option>Hipercard</option></select></div>
+    </div>
+    <div class="g3" style="margin-bottom:10px">
+      <div class="field"><label>Últimos 4 dígitos</label><input type="text" id="ct-digitos" maxlength="4" placeholder="1234"></div>
+      <div class="field"><label>Dia de fechamento *</label><input type="number" id="ct-fechamento" min="1" max="31" placeholder="Ex: 15"></div>
+      <div class="field"><label>Dia de vencimento *</label><input type="number" id="ct-vencimento" min="1" max="31" placeholder="Ex: 10"></div>
+    </div>
+    <div class="g2" style="margin-bottom:10px">
+      <div class="field"><label>Limite (R$)</label><input type="number" id="ct-limite" step="0.01" placeholder="0,00"></div>
+      <div class="field"><label>Observações</label><input type="text" id="ct-obs"></div>
+    </div>
+    <div class="br"><button class="bp" onclick="salvarCartao()">✔ Cadastrar</button></div>
+    <div id="ct-alert" style="margin-top:10px"></div>
+  </div>
+
+  <!-- Painel de cartões -->
+  <div id="cartoes-painel"></div>
+</div>
+
 </div></div>
 
 <script>
@@ -548,7 +613,7 @@ async function checkSession(){const{data:{session}}=await db.auth.getSession();i
 
 // INIT
 async function init(){
-  await Promise.all([loadCfg(),loadClientes(),loadPax(),loadForn(),loadVendas(),loadDesp(),loadFaturas()]);
+  await Promise.all([loadCfg(),loadClientes(),loadPax(),loadForn(),loadVendas(),loadDesp(),loadFaturas(),loadCartoes()]);
   atualizaDash();preencherSelCli();gerarNumVenda();
   const n=new Date();document.getElementById('dre-mes').value=n.getMonth();document.getElementById('dre-ano').value=n.getFullYear();
   initVooBlocks();initPaxBlocks();atualizaVooValores();
@@ -586,6 +651,7 @@ function goTo(sec,btn){
   if(sec==='faturas'){preencherSelCli();renderFaturas();}
   if(sec==='relatorio')preencherSelCli();
   if(sec==='config')loadCfgForm();
+  if(sec==='cartoes')renderCartoesPainel();
 }
 
 // IATA + aeroportos custom
@@ -756,11 +822,18 @@ async function salvarVenda(){
   }
   const now=new Date();const mes=getMesStr(now.getMonth(),now.getFullYear());
   const fee=parseFloat(document.getElementById('v-fee').value)||0,mg=parseFloat(document.getElementById('v-margem').value)||0;
-  const{data,error}=await db.from('vendas').insert([{ref:gv('v-ref'),cliente_id:cidId,tipo:tipoAtual,custo:parseFloat(document.getElementById('v-custo').value)||0,fee,margem:mg,venda,pgto:gv('v-pgto'),pgto_modalidade:modoParc,pgto_parcelas:modoParc==='parcelado'?numParc:1,pgto_valor_parcela:modoParc==='parcelado'?(venda/numParc):venda,status:gv('v-status'),vencimento:gv('v-venc')||null,obs:gv('v-obs')||null,mes,detalhes:det}]).select('*,clientes(nome,seq)');
+  const fornCartaoId = gv('v-forn-cartao-id')||null;
+  const fornParcelas = parseInt(document.getElementById('v-forn-parcelas')?.value)||1;
+  const custoVal = parseFloat(document.getElementById('v-custo').value)||0;
+  const fornVencFatura = gv('v-forn-venc')||null;
+  const{data,error}=await db.from('vendas').insert([{ref:gv('v-ref'),cliente_id:cidId,tipo:tipoAtual,custo:custoVal,fee,margem:mg,venda,pgto:gv('v-pgto'),pgto_modalidade:modoParc,pgto_parcelas:modoParc==='parcelado'?numParc:1,pgto_valor_parcela:modoParc==='parcelado'?(venda/numParc):venda,status:gv('v-status'),vencimento:gv('v-venc')||null,obs:gv('v-obs')||null,mes,detalhes:det,forn_cartao_id:fornCartaoId,forn_parcelas:fornParcelas,forn_valor_parcela:fornCartaoId?(custoVal/fornParcelas):0,forn_venc_fatura:fornVencFatura}]).select('*,clientes(nome,seq)');
   if(error){showAlert('v-alert','Erro: '+error.message,'e');return;}
   vendas.unshift(data[0]);limparVenda();showAlert('v-alert','✅ Venda '+data[0].ref+' salva!','s');atualizaDash();
 }
-function limparVenda(){['v-custo','v-fee','v-margem','v-venda','ho-hosp','ho-doc','ho-hotel','ho-end','ho-in','ho-out','ho-quarto','tr-pax','tr-tel','tr-orig','tr-dest','v-obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('c-base').textContent='R$ 0,00';document.getElementById('c-imp').textContent='- R$ 0,00';document.getElementById('c-luc').textContent='R$ 0,00';sv('v-cli','');setParc('avista');sv('v-pgto','PIX');onPgtoChange();initPaxBlocks();initVooBlocks();atualizaVooValores();gerarNumVenda();}
+function limparVenda(){['v-custo','v-fee','v-margem','v-venda','ho-hosp','ho-doc','ho-hotel','ho-end','ho-in','ho-out','ho-quarto','tr-pax','tr-tel','tr-orig','tr-dest','v-obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('c-base').textContent='R$ 0,00';document.getElementById('c-imp').textContent='- R$ 0,00';document.getElementById('c-luc').textContent='R$ 0,00';sv('v-cli','');setParc('avista');sv('v-pgto','PIX');onPgtoChange();initPaxBlocks();initVooBlocks();atualizaVooValores();gerarNumVenda();
+  sv('v-forn-cartao-txt','');sv('v-forn-cartao-id','');sv('v-forn-parc-val','');
+  const fb=document.getElementById('v-forn-fatura-box');if(fb)fb.style.display='none';
+  const fp=document.getElementById('v-forn-parcelas');if(fp)fp.value='1';}
 
 // Passageiros
 async function salvarPax(){const nome=gv('px-nome'),doc=gv('px-doc');if(!nome||!doc){showAlert('px-alert','Preencha nome e documento.','i');return;}if(passageiros.find(p=>p.nome.toLowerCase()===nome.toLowerCase()&&p.doc===doc)){showAlert('px-alert','Já cadastrado.','i');return;}const{data,error}=await db.from('passageiros').insert([{nome,doc,nasc:gv('px-nasc')||null,nac:gv('px-nac')||null,tel:gv('px-tel')||null,email:gv('px-email')||null,passport:gv('px-pass')||null,passvalid:gv('px-passval')||null,vinculo:gv('px-vinc')||null,obs:gv('px-obs')||null}]).select();if(error){showAlert('px-alert','Erro: '+error.message,'e');return;}passageiros.push(data[0]);['px-nome','px-doc','px-nasc','px-nac','px-tel','px-email','px-pass','px-passval','px-vinc','px-obs'].forEach(id=>sv(id,''));showAlert('px-alert','Passageiro salvo!','s');renderPax();}
@@ -1014,7 +1087,202 @@ document.addEventListener('DOMContentLoaded', function() {
   });
   const mv = document.getElementById('modal-venda');
   if(mv) mv.addEventListener('click', function(e){ if(e.target===this) fecharModal(); });
-  checkSession();
+  
+// ── CARTÕES ──────────────────────────────────────────────
+let cartoes = [];
+
+async function loadCartoes(){
+  const{data}=await db.from('cartoes').select('*').eq('ativo',true).order('nome');
+  cartoes=data||[];
+}
+
+async function salvarCartao(){
+  const nome=gv('ct-nome');
+  const fechamento=parseInt(document.getElementById('ct-fechamento').value)||0;
+  const vencimento=parseInt(document.getElementById('ct-vencimento').value)||0;
+  if(!nome){showAlert('ct-alert','Informe o nome do cartão.','i');return;}
+  if(!fechamento||!vencimento){showAlert('ct-alert','Informe dia de fechamento e vencimento.','i');return;}
+  const{data,error}=await db.from('cartoes').insert([{
+    nome, banco:gv('ct-banco')||null, bandeira:gv('ct-bandeira'),
+    ultimos4:gv('ct-digitos')||null, dia_fechamento:fechamento,
+    dia_vencimento:vencimento, limite:parseFloat(document.getElementById('ct-limite').value)||0,
+    obs:gv('ct-obs')||null, ativo:true
+  }]).select();
+  if(error){showAlert('ct-alert','Erro: '+error.message,'e');return;}
+  cartoes.push(data[0]);
+  ['ct-nome','ct-banco','ct-digitos','ct-limite','ct-obs'].forEach(id=>sv(id,''));
+  showAlert('ct-alert','✅ Cartão cadastrado!','s');
+  renderCartoesPainel();
+}
+
+async function delCartao(id){
+  if(!confirm('Remover cartão?'))return;
+  await db.from('cartoes').update({ativo:false}).eq('id',id);
+  cartoes=cartoes.filter(c=>c.id!==id);
+  renderCartoesPainel();
+}
+
+function editCartao(id){
+  const c=cartoes.find(x=>x.id===id);if(!c)return;
+  sv('ct-nome',c.nome);sv('ct-banco',c.banco||'');sv('ct-digitos',c.ultimos4||'');
+  sv('ct-limite',c.limite||'');sv('ct-obs',c.obs||'');
+  document.getElementById('ct-fechamento').value=c.dia_fechamento||'';
+  document.getElementById('ct-vencimento').value=c.dia_vencimento||'';
+  document.getElementById('ct-bandeira').value=c.bandeira||'Visa';
+  cartoes=cartoes.filter(x=>x.id!==id);
+  db.from('cartoes').delete().eq('id',id);
+  showAlert('ct-alert','Dados carregados. Salve novamente após editar.','i');
+  window.scrollTo(0,0);
+}
+
+// Calcula em qual fatura cai uma compra baseado no dia de fechamento
+function calcFaturaCartao(cartaoId, dataCompra){
+  const c=cartoes.find(x=>x.id===cartaoId);
+  if(!c)return null;
+  const d = dataCompra ? new Date(dataCompra+'T12:00:00') : new Date();
+  const diaCompra = d.getDate();
+  const mesCompra = d.getMonth();
+  const anoCompra = d.getFullYear();
+  // Se comprou antes ou no dia do fechamento → fatura do mês atual
+  // Se comprou depois do fechamento → fatura do próximo mês
+  let mesFatura = mesCompra;
+  let anoFatura = anoCompra;
+  if(diaCompra > c.dia_fechamento){
+    mesFatura++;
+    if(mesFatura > 11){ mesFatura=0; anoFatura++; }
+  }
+  // Vencimento: dia_vencimento do mês seguinte ao mesFatura
+  let mesVenc = mesFatura + 1;
+  let anoVenc = anoFatura;
+  if(mesVenc > 11){ mesVenc=0; anoVenc++; }
+  const vencDate = new Date(anoVenc, mesVenc, c.dia_vencimento);
+  return {
+    mesFatura, anoFatura,
+    label: MESES[mesFatura]+' '+anoFatura,
+    vencimento: vencDate.toISOString().split('T')[0],
+    vencLabel: fmtD(vencDate.toISOString().split('T')[0])
+  };
+}
+
+// Autocomplete de cartão no campo da venda
+function cartaoSearch(inp,lid){
+  const q=inp.value.trim().toLowerCase();const list=document.getElementById(lid);
+  if(q.length<1){list.style.display='none';return;}
+  const res=cartoes.filter(c=>c.nome.toLowerCase().includes(q)||(c.ultimos4&&c.ultimos4.includes(q))).slice(0,8);
+  if(!res.length){list.style.display='none';return;}
+  list.innerHTML=res.map(c=>`<div class="ac-item" onclick="selCartao('${c.id}','${c.nome.replace(/'/g,"\'")}','${lid}')">
+    <div class="ac-name">💳 ${c.nome}${c.ultimos4?' ····'+c.ultimos4:''}</div>
+    <div class="ac-detail">${c.bandeira||''} · Fecha dia ${c.dia_fechamento} · Vence dia ${c.dia_vencimento}</div>
+  </div>`).join('');
+  list.style.display='block';
+}
+
+function selCartao(id, nome, lid){
+  sv('v-forn-cartao-txt', nome);
+  sv('v-forn-cartao-id', id);
+  document.getElementById(lid).style.display='none';
+  atualizaFaturaCartao();
+}
+
+function atualizaFaturaCartao(){
+  const cartaoId = gv('v-forn-cartao-id');
+  const box = document.getElementById('v-forn-fatura-box');
+  if(!cartaoId){if(box)box.style.display='none';return;}
+  // Usar data de hoje como data da compra
+  const hoje = new Date().toISOString().split('T')[0];
+  const info = calcFaturaCartao(cartaoId, hoje);
+  if(!info){if(box)box.style.display='none';return;}
+  document.getElementById('v-forn-fatura-label').textContent =
+    'Fatura de '+info.label+' — vence '+info.vencLabel;
+  sv('v-forn-venc', info.vencimento);
+  if(box) box.style.display='block';
+}
+
+function calcFornParcela(){
+  const custo = parseFloat(document.getElementById('v-custo').value)||0;
+  const parcelas = parseInt(document.getElementById('v-forn-parcelas').value)||1;
+  const valParc = parcelas > 0 && custo > 0 ? fmtBRL(custo/parcelas) : '—';
+  sv('v-forn-parc-val', valParc);
+  atualizaFaturaCartao();
+}
+
+// Renderizar painel de cartões com faturas agrupadas
+function renderCartoesPainel(){
+  const el=document.getElementById('cartoes-painel');
+  if(!cartoes.length){
+    el.innerHTML='<div class="card"><div class="empty">Nenhum cartão cadastrado ainda.</div></div>';
+    return;
+  }
+  let html='';
+  cartoes.forEach(c=>{
+    // Buscar vendas pagas neste cartão
+    const vendasCartao = vendas.filter(v=>v.forn_cartao_id===c.id);
+    // Agrupar por fatura (mes/ano)
+    const faturaMap = {};
+    vendasCartao.forEach(v=>{
+      if(!v.forn_venc_fatura) return;
+      const key = v.forn_venc_fatura;
+      if(!faturaMap[key]) faturaMap[key]={venc:key, total:0, items:[]};
+      faturaMap[key].total += parseFloat(v.custo||0);
+      faturaMap[key].items.push(v);
+    });
+    const faturas = Object.values(faturaMap).sort((a,b)=>a.venc.localeCompare(b.venc));
+    const totalGeral = vendasCartao.reduce((s,v)=>s+parseFloat(v.custo||0),0);
+    // Próxima fatura
+    const hoje = new Date().toISOString().split('T')[0];
+    const proxInfo = calcFaturaCartao(c.id, hoje);
+    const faturaAtual = faturas.find(f=>f.venc===proxInfo?.vencimento);
+    const totalFaturaAtual = faturaAtual?.total||0;
+
+    html+=`<div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:44px;height:28px;background:linear-gradient(135deg,#1a3a6b,#185FA5);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;font-weight:700">${c.bandeira?.slice(0,2)||'CC'}</div>
+          <div>
+            <div style="font-weight:700;font-size:14px">${c.nome}${c.ultimos4?' <span style="color:#888;font-weight:400;font-size:12px">····'+c.ultimos4+'</span>':''}</div>
+            <div style="font-size:11px;color:#888">Fecha dia ${c.dia_fechamento} · Vence dia ${c.dia_vencimento} · Limite: ${fmtBRL(c.limite)}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="be" onclick="editCartao('${c.id}');goTo('cartoes',document.querySelector('.nb.active'))">✏ Editar</button>
+          <button class="bd" onclick="delCartao('${c.id}')">✕</button>
+        </div>
+      </div>`;
+
+    if(proxInfo){
+      html+=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+        <div class="mc"><div class="mc-lbl">Fatura atual (${proxInfo.label})</div><div class="mc-val amber">${fmtBRL(totalFaturaAtual)}</div></div>
+        <div class="mc"><div class="mc-lbl">Próximo vencimento</div><div class="mc-val blue">${proxInfo.vencLabel}</div></div>
+        <div class="mc"><div class="mc-lbl">Total comprometido</div><div class="mc-val red">${fmtBRL(totalGeral)}</div></div>
+      </div>`;
+    }
+
+    if(faturas.length){
+      html+=`<div class="ct" style="margin-bottom:8px">📋 Faturas com gastos</div>`;
+      faturas.forEach(ft=>{
+        const isCurrent = ft.venc === proxInfo?.vencimento;
+        html+=`<div style="border:1px solid ${isCurrent?'#f0d080':'#eee'};border-radius:8px;margin-bottom:8px;overflow:hidden">
+          <div style="padding:8px 12px;background:${isCurrent?'#fff8ed':'#fafafa'};display:flex;justify-content:space-between;align-items:center">
+            <span style="font-weight:600;font-size:12px">${isCurrent?'🔔 ':''} Fatura vence ${fmtD(ft.venc)}</span>
+            <span style="font-weight:700;color:#BA7517">${fmtBRL(ft.total)}</span>
+          </div>
+          <div class="tbl-wrap"><table class="dt"><thead><tr><th>Venda</th><th>Passageiro(s)</th><th>Tipo</th><th>Custo</th><th>Parcelas</th><th>Parcela</th></tr></thead><tbody>`;
+        ft.items.forEach(v=>{
+          const d=v.detalhes||{};
+          const pax=d.passageiros?d.passageiros.map(p=>p.nome).join(', '):(d.pax||d.hosp||'-');
+          html+=`<tr><td style="font-weight:600;color:#185FA5">${v.ref}</td><td style="font-size:11px">${pax}</td><td><span class="badge b-${v.tipo}">${tl(v.tipo)}</span></td><td>${fmtBRL(v.custo)}</td><td>${v.forn_parcelas||1}x</td><td>${fmtBRL(v.forn_valor_parcela||v.custo)}</td></tr>`;
+        });
+        html+=`</tbody></table></div></div>`;
+      });
+    } else {
+      html+=`<div class="empty" style="padding:14px">Nenhuma venda registrada neste cartão ainda.</div>`;
+    }
+    html+=`</div>`;
+  });
+  el.innerHTML=html;
+}
+
+checkSession();
 });
 </script>
 </body></html>
