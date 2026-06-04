@@ -163,6 +163,7 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
     <button class="nb" onclick="goTo('fornecedores',this)">🏢 Fornecedores</button>
     <button class="nb" onclick="goTo('faturas',this)">🧾 Faturas</button>
     <button class="nb" onclick="goTo('cartoes',this)">💳 Cartões</button>
+    <button class="nb" onclick="goTo('recebimentos',this)">💰 Recebimentos</button>
     <button class="nb" onclick="goTo('relatorio',this)">📄 Relatórios</button>
     <button class="nb" onclick="goTo('config',this)">⚙️ Config</button>
   </div>
@@ -579,6 +580,54 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
   <div id="cartoes-painel"></div>
 </div>
 
+
+<!-- RECEBIMENTOS -->
+<div class="section" id="sec-recebimentos">
+  <div class="card">
+    <div class="ct">💰 Lançar recebimento</div>
+    <div class="info-box">Selecione uma venda pendente e registre o pagamento recebido do cliente.</div>
+    <div class="g3" style="margin-bottom:10px">
+      <div class="field"><label>Cliente</label>
+        <select id="rec-cli" onchange="loadVendasRec()"><option value="">Selecione...</option></select>
+      </div>
+      <div class="field"><label>Venda</label>
+        <select id="rec-venda"><option value="">Selecione um cliente primeiro...</option></select>
+      </div>
+      <div class="field"><label>Forma de recebimento</label>
+        <select id="rec-forma"><option>PIX</option><option>Transferência bancária</option><option>Boleto</option><option>Cartão de crédito</option><option>Cartão de débito</option><option>Dinheiro</option></select>
+      </div>
+    </div>
+    <div class="g3" style="margin-bottom:10px">
+      <div class="field"><label>Valor recebido (R$) *</label><input type="number" id="rec-valor" step="0.01" placeholder="0,00"></div>
+      <div class="field"><label>Data do recebimento *</label><input type="date" id="rec-data"></div>
+      <div class="field"><label>Observação</label><input type="text" id="rec-obs" placeholder="Ex: PIX confirmado, nº comprovante..."></div>
+    </div>
+    <div class="br">
+      <button class="bp" onclick="lancarRecebimento()">✔ Lançar recebimento</button>
+    </div>
+    <div id="rec-alert" style="margin-top:10px"></div>
+  </div>
+
+  <!-- Painel de recebimentos -->
+  <div class="card">
+    <div class="ct" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <span>📋 Vendas a receber e recebidas</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select id="rec-filtro-status" style="font-size:11px;padding:4px 8px;border:1px solid #ddd;border-radius:6px" onchange="renderRecebimentos()">
+          <option value="">Todos os status</option>
+          <option value="pendente">Pendente</option>
+          <option value="parcial">Parcial</option>
+          <option value="pago">Pago</option>
+        </select>
+        <select id="rec-filtro-cli" style="font-size:11px;padding:4px 8px;border:1px solid #ddd;border-radius:6px" onchange="renderRecebimentos()">
+          <option value="">Todos os clientes</option>
+        </select>
+      </div>
+    </div>
+    <div id="lista-recebimentos"><div class="empty">Carregando...</div></div>
+  </div>
+</div>
+
 </div></div>
 
 <script>
@@ -614,7 +663,7 @@ async function checkSession(){const{data:{session}}=await db.auth.getSession();i
 // INIT
 async function init(){
   await Promise.all([loadCfg(),loadClientes(),loadPax(),loadForn(),loadVendas(),loadDesp(),loadFaturas(),loadCartoes()]);
-  atualizaDash();preencherSelCli();gerarNumVenda();
+  atualizaDash();preencherSelCli();gerarNumVenda();preencherFiltrosRec();
   const n=new Date();document.getElementById('dre-mes').value=n.getMonth();document.getElementById('dre-ano').value=n.getFullYear();
   initVooBlocks();initPaxBlocks();atualizaVooValores();
 }
@@ -651,7 +700,8 @@ function goTo(sec,btn){
   if(sec==='faturas'){preencherSelCli();renderFaturas();}
   if(sec==='relatorio')preencherSelCli();
   if(sec==='config')loadCfgForm();
-  if(sec==='cartoes')renderCartoesPainel();
+  if(sec==='recebimentos'){preencherFiltrosRec();renderRecebimentos();}
+  if(sec==='cartoes'){loadCartoes().then(()=>renderCartoesPainel());}
 }
 
 // IATA + aeroportos custom
@@ -718,7 +768,7 @@ function selPax(iid,lid,paxId){
 // Blocos PAX
 function initPaxBlocks(){paxCount=0;document.getElementById('pax-blocks').innerHTML='';addPaxBlock();}
 function addPaxBlock(){
-  if(paxCount>=4){showAlert('v-alert','Máximo 4 passageiros.','i');return;}
+  if(paxCount>=5){showAlert('v-alert','Máximo 5 passageiros.','i');return;}
   paxCount++;const n=paxCount;const lid='ac-pax-'+n;
   const div=document.createElement('div');div.className='pax-block';div.id='pb-'+n;
   div.innerHTML='<div class="pax-block-title"><span>Passageiro '+n+'</span>'+(n>1?'<button class="bd" style="font-size:10px" onclick="remPaxBlock('+n+')">✕</button>':'')+'</div>'+
@@ -732,7 +782,7 @@ function addPaxBlock(){
     '<div class="field"><label>E-mail</label><input type="email" id="pemail-'+n+'"></div></div>'+
     '<div class="br" style="margin-top:8px"><button class="bs" style="font-size:11px" onclick="salvarPaxDaVenda('+n+')">💾 Salvar passageiro no banco</button><span id="pfb-'+n+'" style="font-size:11px;color:#1D9E75;margin-left:8px"></span></div>';
   document.getElementById('pax-blocks').appendChild(div);
-  if(paxCount>=4)document.getElementById('btn-add-pax').style.display='none';
+  if(paxCount>=5)document.getElementById('btn-add-pax').style.display='none';
 }
 function remPaxBlock(n){const el=document.getElementById('pb-'+n);if(el)el.remove();paxCount--;document.getElementById('btn-add-pax').style.display='';}
 async function salvarPaxDaVenda(n){
@@ -788,7 +838,7 @@ function atualizaVooValores(){
 }
 function somarCustos(){let t=0;for(let i=1;i<=vooCount;i++){const el=document.getElementById('vcusto-'+i);if(el)t+=parseFloat(el.value)||0;}if(t>0){sv('v-custo',t.toFixed(2));calcLucro();}}
 
-function coletarPax(){const list=[];for(let i=1;i<=4;i++){const nome=document.getElementById('pnome-'+i)?.value.trim();if(!nome)continue;list.push({nome,doc:document.getElementById('pdoc-'+i)?.value.trim()||'',nasc:document.getElementById('pnasc-'+i)?.value||'',nac:document.getElementById('pnac-'+i)?.value.trim()||'',tel:document.getElementById('ptel-'+i)?.value.trim()||'',email:document.getElementById('pemail-'+i)?.value.trim()||''});}return list;}
+function coletarPax(){const list=[];for(let i=1;i<=5;i++){const nome=document.getElementById('pnome-'+i)?.value.trim();if(!nome)continue;list.push({nome,doc:document.getElementById('pdoc-'+i)?.value.trim()||'',nasc:document.getElementById('pnasc-'+i)?.value||'',nac:document.getElementById('pnac-'+i)?.value.trim()||'',tel:document.getElementById('ptel-'+i)?.value.trim()||'',email:document.getElementById('pemail-'+i)?.value.trim()||''});}return list;}
 function coletarVoos(){const list=[];for(let i=1;i<=3;i++){const cia=document.getElementById('vcia-'+i)?.value.trim();const orig=document.getElementById('vorig-'+i)?.value.trim();if(!cia&&!orig)continue;list.push({cia:cia||'',num:document.getElementById('vnum-'+i)?.value.trim()||'',classe:document.getElementById('vclasse-'+i)?.value||'',orig:orig||'',dest:document.getElementById('vdest-'+i)?.value.trim()||'',bag:document.getElementById('vbag-'+i)?.value||'',ida:document.getElementById('vida-'+i)?.value||'',chg:document.getElementById('vchg-'+i)?.value||'',pnr:document.getElementById('vpnr-'+i)?.value.trim()||'',bilhete:document.getElementById('vbil-'+i)?.value.trim()||'',solic:document.getElementById('vsolic-'+i)?.value.trim()||'',custo:parseFloat(document.getElementById('vcusto-'+i)?.value)||0});}return list;}
 
 // Numeração
@@ -1280,6 +1330,156 @@ function renderCartoesPainel(){
     html+=`</div>`;
   });
   el.innerHTML=html;
+}
+
+
+// ── RECEBIMENTOS ─────────────────────────────────────────
+async function loadVendasRec(){
+  const cId = gv('rec-cli');
+  const sel = document.getElementById('rec-venda');
+  if(!cId){sel.innerHTML='<option value="">Selecione um cliente primeiro...</option>';return;}
+  const vendasPend = vendas.filter(v=>v.cliente_id===cId && v.status!=='pago');
+  if(!vendasPend.length){
+    sel.innerHTML='<option value="">Nenhuma venda pendente</option>';
+    return;
+  }
+  sel.innerHTML='<option value="">Selecione a venda...</option>'+
+    vendasPend.map(v=>{
+      const d=v.detalhes||{};
+      const pax=d.passageiros?d.passageiros[0].nome:(d.pax||d.hosp||'');
+      return '<option value="'+v.id+'">'+v.ref+' — '+pax+' — '+fmtBRL(v.venda)+' ('+v.status+')</option>';
+    }).join('');
+  // Preencher valor automaticamente
+  sel.onchange = function(){
+    const vId = sel.value;
+    const venda = vendas.find(x=>x.id===vId);
+    if(venda){
+      document.getElementById('rec-valor').value = venda.venda;
+      // Data de hoje
+      document.getElementById('rec-data').value = new Date().toISOString().split('T')[0];
+    }
+  };
+}
+
+async function lancarRecebimento(){
+  const vendaId = gv('rec-venda');
+  const valor = parseFloat(document.getElementById('rec-valor').value)||0;
+  const data = gv('rec-data');
+  if(!vendaId){showAlert('rec-alert','Selecione uma venda.','i');return;}
+  if(!valor||!data){showAlert('rec-alert','Informe valor e data.','i');return;}
+
+  const venda = vendas.find(v=>v.id===vendaId);
+  if(!venda){showAlert('rec-alert','Venda não encontrada.','e');return;}
+
+  // Determinar novo status
+  const totalVenda = parseFloat(venda.venda||0);
+  const novoStatus = valor >= totalVenda ? 'pago' : 'parcial';
+  const obs = gv('rec-obs');
+  const obsAtual = venda.obs||'';
+  const novaObs = obsAtual
+    ? obsAtual + ' | Recebido '+fmtBRL(valor)+' em '+fmtD(data)+' via '+gv('rec-forma')+(obs?' ('+obs+')':'')
+    : 'Recebido '+fmtBRL(valor)+' em '+fmtD(data)+' via '+gv('rec-forma')+(obs?' ('+obs+')':'');
+
+  const{error}=await db.from('vendas').update({
+    status: novoStatus,
+    obs: novaObs
+  }).eq('id',vendaId);
+
+  if(error){showAlert('rec-alert','Erro: '+error.message,'e');return;}
+
+  // Atualizar local
+  const idx = vendas.findIndex(v=>v.id===vendaId);
+  if(idx>=0) vendas[idx]={...vendas[idx], status:novoStatus, obs:novaObs};
+
+  showAlert('rec-alert',
+    novoStatus==='pago'
+      ? '✅ Pagamento total confirmado! Venda marcada como PAGA.'
+      : '✅ Recebimento parcial lançado. Venda marcada como PARCIAL.',
+    's');
+
+  // Limpar campos
+  sv('rec-venda','');sv('rec-valor','');sv('rec-obs','');
+  await loadVendas();
+  renderRecebimentos();
+  atualizaDash();
+}
+
+function renderRecebimentos(){
+  const el = document.getElementById('lista-recebimentos');
+  const filtroStatus = gv('rec-filtro-status');
+  const filtroCli = gv('rec-filtro-cli');
+
+  let f = [...vendas];
+  if(filtroStatus) f = f.filter(v=>v.status===filtroStatus);
+  if(filtroCli) f = f.filter(v=>v.cliente_id===filtroCli);
+  // Ordenar: pendente/parcial primeiro, depois pago
+  f.sort((a,b)=>{
+    const ord = {pendente:0, parcial:1, pago:2};
+    return (ord[a.status]||0)-(ord[b.status]||0);
+  });
+
+  const totalPendente = f.filter(v=>v.status==='pendente').reduce((s,v)=>s+parseFloat(v.venda||0),0);
+  const totalParcial = f.filter(v=>v.status==='parcial').reduce((s,v)=>s+parseFloat(v.venda||0),0);
+  const totalPago = f.filter(v=>v.status==='pago').reduce((s,v)=>s+parseFloat(v.venda||0),0);
+
+  if(!f.length){el.innerHTML='<div class="empty">Nenhuma venda encontrada.</div>';return;}
+
+  let html = '<div class="g3" style="margin-bottom:14px">'+
+    '<div class="mc"><div class="mc-lbl">🔴 A receber (pendente)</div><div class="mc-val red">'+fmtBRL(totalPendente)+'</div></div>'+
+    '<div class="mc"><div class="mc-lbl">🟡 Parcialmente pago</div><div class="mc-val amber">'+fmtBRL(totalParcial)+'</div></div>'+
+    '<div class="mc"><div class="mc-lbl">🟢 Recebido (pago)</div><div class="mc-val green">'+fmtBRL(totalPago)+'</div></div>'+
+    '</div>';
+
+  html += '<div class="tbl-wrap"><table class="dt"><thead><tr>'+
+    '<th>Venda</th><th>Cliente</th><th>Passageiro(s)</th><th>Tipo</th><th>Vencimento</th><th>Pagamento</th><th>Valor</th><th>Status</th><th>Ações</th>'+
+    '</tr></thead><tbody>';
+
+  f.forEach(v=>{
+    const d=v.detalhes||{};
+    const pax=d.passageiros?d.passageiros.map(p=>p.nome).join(', '):(d.pax||d.hosp||'-');
+    const pgtoStr = v.pgto_modalidade==='parcelado'
+      ? v.pgto+' '+v.pgto_parcelas+'x '+fmtBRL(v.pgto_valor_parcela)
+      : v.pgto||'-';
+    const vencStyle = v.status!=='pago' && v.vencimento && v.vencimento < new Date().toISOString().split('T')[0]
+      ? 'color:#E24B4A;font-weight:600' : '';
+
+    html += '<tr>'+
+      '<td style="font-weight:700;color:#185FA5">'+v.ref+'</td>'+
+      '<td>'+(v.clientes?.nome||'-')+'</td>'+
+      '<td style="font-size:11px">'+pax+'</td>'+
+      '<td><span class="badge b-'+v.tipo+'">'+tl(v.tipo)+'</span></td>'+
+      '<td style="'+vencStyle+'">'+(v.vencimento?fmtD(v.vencimento):'—')+'</td>'+
+      '<td style="font-size:11px">'+pgtoStr+'</td>'+
+      '<td style="font-weight:600">'+fmtBRL(v.venda)+'</td>'+
+      '<td><span class="badge b-'+v.status+'">'+v.status+'</span></td>'+
+      '<td style="white-space:nowrap">'+
+        (v.status!=='pago'
+          ? `<button class="bg" onclick="marcarPago('${v.id}')">✔ Pago</button> `
+          : '')+
+        `<button class="be" onclick="abrirVenda('${v.id}')">✏</button>`+
+      '</td></tr>';
+  });
+
+  html += '</tbody></table></div>';
+  el.innerHTML = html;
+}
+
+async function marcarPago(vendaId){
+  if(!confirm('Marcar esta venda como PAGA?'))return;
+  const{error}=await db.from('vendas').update({status:'pago'}).eq('id',vendaId);
+  if(error){alert('Erro: '+error.message);return;}
+  const idx=vendas.findIndex(v=>v.id===vendaId);
+  if(idx>=0)vendas[idx]={...vendas[idx],status:'pago'};
+  renderRecebimentos();atualizaDash();
+}
+
+function preencherFiltrosRec(){
+  // Preencher filtro de clientes na aba recebimentos
+  ['rec-cli','rec-filtro-cli'].forEach(sid=>{
+    const sel=document.getElementById(sid);if(!sel)return;
+    sel.innerHTML=(sid==='rec-filtro-cli'?'<option value="">Todos os clientes</option>':'<option value="">Selecione...</option>')+
+      clientes.map(c=>'<option value="'+c.id+'">'+(c.seq||'')+' – '+c.nome+'</option>').join('');
+  });
 }
 
 checkSession();
