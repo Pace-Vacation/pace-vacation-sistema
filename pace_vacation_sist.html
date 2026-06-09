@@ -554,6 +554,7 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
 </div>
 
 
+
 <!-- CARTÕES -->
 <div class="section" id="sec-cartoes">
   <div class="card">
@@ -624,10 +625,7 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
         </select>
       </div>
     </div>
-    <div id="lista-recebimentos"><div class="empty">Carregando...</div></div>
-  </div>
-</div>
-
+    <div id="lista-recebimentos"><div class="empty">Carregando...
 </div></div>
 
 <script>
@@ -872,18 +870,34 @@ async function salvarVenda(){
   }
   const now=new Date();const mes=getMesStr(now.getMonth(),now.getFullYear());
   const fee=parseFloat(document.getElementById('v-fee').value)||0,mg=parseFloat(document.getElementById('v-margem').value)||0;
-  const fornCartaoId = gv('v-forn-cartao-id')||null;
-  const fornParcelas = parseInt(document.getElementById('v-forn-parcelas')?.value)||1;
-  const custoVal = parseFloat(document.getElementById('v-custo').value)||0;
-  const fornVencFatura = gv('v-forn-venc')||null;
-  const{data,error}=await db.from('vendas').insert([{ref:gv('v-ref'),cliente_id:cidId,tipo:tipoAtual,custo:custoVal,fee,margem:mg,venda,pgto:gv('v-pgto'),pgto_modalidade:modoParc,pgto_parcelas:modoParc==='parcelado'?numParc:1,pgto_valor_parcela:modoParc==='parcelado'?(venda/numParc):venda,status:gv('v-status'),vencimento:gv('v-venc')||null,obs:gv('v-obs')||null,mes,detalhes:det,forn_cartao_id:fornCartaoId,forn_parcelas:fornParcelas,forn_valor_parcela:fornCartaoId?(custoVal/fornParcelas):0,forn_venc_fatura:fornVencFatura}]).select('*,clientes(nome,seq)');
-  if(error){showAlert('v-alert','Erro: '+error.message,'e');return;}
-  vendas.unshift(data[0]);limparVenda();showAlert('v-alert','✅ Venda '+data[0].ref+' salva!','s');atualizaDash();
+  const custoVal=parseFloat(document.getElementById('v-custo').value)||0;
+  const fornCartaoId=gv('v-forn-cartao-id')||null;
+  const fornParcelas=parseInt(document.getElementById('v-forn-parcelas')?.value)||1;
+  const fornVencFatura=gv('v-forn-venc')||null;
+  const payload={ref:gv('v-ref'),cliente_id:cidId,tipo:tipoAtual,custo:custoVal,fee,margem:mg,venda,pgto:gv('v-pgto'),pgto_modalidade:modoParc,pgto_parcelas:modoParc==='parcelado'?numParc:1,pgto_valor_parcela:modoParc==='parcelado'?(venda/numParc):venda,status:gv('v-status'),vencimento:gv('v-venc')||null,obs:gv('v-obs')||null,mes,detalhes:det,forn_cartao_id:fornCartaoId,forn_parcelas:fornParcelas,forn_valor_parcela:fornCartaoId?(custoVal/fornParcelas):0,forn_venc_fatura:fornVencFatura};
+
+  // Modo edição ou inserção
+  if(window._editandoVendaId){
+    const editId = window._editandoVendaId;
+    const{error}=await db.from('vendas').update(payload).eq('id',editId);
+    if(error){showAlert('v-alert','Erro ao atualizar: '+error.message,'e');return;}
+    await loadVendas();
+    window._editandoVendaId=null;
+    document.getElementById('v-ref').style.color='#185FA5';
+    limparVenda();showAlert('v-alert','✅ Venda atualizada com sucesso!','s');atualizaDash();
+  } else {
+    const{data,error}=await db.from('vendas').insert([payload]).select('*,clientes(nome,seq)');
+    if(error){showAlert('v-alert','Erro: '+error.message,'e');return;}
+    vendas.unshift(data[0]);limparVenda();showAlert('v-alert','✅ Venda '+data[0].ref+' salva!','s');atualizaDash();
+  }
 }
+
 function limparVenda(){['v-custo','v-fee','v-margem','v-venda','ho-hosp','ho-doc','ho-hotel','ho-end','ho-in','ho-out','ho-quarto','tr-pax','tr-tel','tr-orig','tr-dest','v-obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('c-base').textContent='R$ 0,00';document.getElementById('c-imp').textContent='- R$ 0,00';document.getElementById('c-luc').textContent='R$ 0,00';sv('v-cli','');setParc('avista');sv('v-pgto','PIX');onPgtoChange();initPaxBlocks();initVooBlocks();atualizaVooValores();gerarNumVenda();
   sv('v-forn-cartao-txt','');sv('v-forn-cartao-id','');sv('v-forn-parc-val','');
   const fb=document.getElementById('v-forn-fatura-box');if(fb)fb.style.display='none';
-  const fp=document.getElementById('v-forn-parcelas');if(fp)fp.value='1';}
+  const fp=document.getElementById('v-forn-parcelas');if(fp)fp.value='1';
+  window._editandoVendaId=null;
+  document.getElementById('v-ref').style.color='#185FA5';}
 
 // Passageiros
 async function salvarPax(){const nome=gv('px-nome'),doc=gv('px-doc');if(!nome||!doc){showAlert('px-alert','Preencha nome e documento.','i');return;}if(passageiros.find(p=>p.nome.toLowerCase()===nome.toLowerCase()&&p.doc===doc)){showAlert('px-alert','Já cadastrado.','i');return;}const{data,error}=await db.from('passageiros').insert([{nome,doc,nasc:gv('px-nasc')||null,nac:gv('px-nac')||null,tel:gv('px-tel')||null,email:gv('px-email')||null,passport:gv('px-pass')||null,passvalid:gv('px-passval')||null,vinculo:gv('px-vinc')||null,obs:gv('px-obs')||null}]).select();if(error){showAlert('px-alert','Erro: '+error.message,'e');return;}passageiros.push(data[0]);['px-nome','px-doc','px-nasc','px-nac','px-tel','px-email','px-pass','px-passval','px-vinc','px-obs'].forEach(id=>sv(id,''));showAlert('px-alert','Passageiro salvo!','s');renderPax();}
@@ -973,25 +987,194 @@ function atualizaDash(){
   dd.innerHTML=dm.length?'<div class="tbl-wrap"><table class="dt"><thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Valor</th><th>Status</th></tr></thead><tbody>'+dm.map(d=>'<tr><td>'+fmtD(d.data)+'</td><td>'+d.descricao+'</td><td><span class="badge b-'+d.tipo+'">'+(d.tipo==='fixa'?'Fixa':'Pontual')+'</span></td><td>'+fmtBRL(d.valor)+'</td><td><span class="badge b-'+(d.status==='pago'?'pago':'pendente')+'">'+(d.status==='pago'?'Pago':'A pagar')+'</span></td></tr>').join('')+'</tbody></table></div>':'<div class="empty">Nenhuma despesa neste período.</div>';
 }
 
-// Modal venda
+// Modal venda — ver, editar completo, excluir
 function abrirVenda(id){
   const v=vendas.find(x=>x.id===id);if(!v)return;
   const d=v.detalhes||{};
+  const cl=clientes.find(c=>c.id===v.cliente_id);
   document.getElementById('modal-title-txt').textContent='Venda '+v.ref;
-  let body='<div class="g3" style="margin-bottom:12px"><div class="mc"><div class="mc-lbl">Venda</div><div style="font-weight:700;color:#185FA5">'+v.ref+'</div></div><div class="mc"><div class="mc-lbl">Valor</div><div style="font-weight:700">'+fmtBRL(v.venda)+'</div></div><div class="mc"><div class="mc-lbl">Status</div><span class="badge b-'+v.status+'">'+v.status+'</span></div></div>';
-  if(d.passageiros&&d.passageiros.length){body+='<div style="margin-bottom:10px"><div class="ct">🧳 Passageiros</div>'+d.passageiros.map(p=>'<div style="padding:6px 10px;background:#f0faf5;border-radius:6px;margin-bottom:4px;font-size:13px"><strong>'+p.nome+'</strong>'+(p.doc?' · '+p.doc:'')+(p.nasc?' · Nasc: '+fmtD(p.nasc):'')+' '+p.nac+'</div>').join('')+'</div>';}
-  else if(d.hosp){body+='<div style="margin-bottom:10px"><div class="ct">🧳 Hóspede</div><div style="padding:6px 10px;background:#f0faf5;border-radius:6px;font-size:13px"><strong>'+d.hosp+'</strong>'+(d.doc?' · '+d.doc:'')+'</div></div>';}
-  if(d.voos&&d.voos.length){body+='<div style="margin-bottom:10px"><div class="ct">✈️ Voos</div>'+d.voos.map((vo,i)=>'<div style="padding:10px 12px;background:#f8faff;border:1px solid #c8d8f0;border-radius:8px;margin-bottom:6px;font-size:12px"><strong>Voo '+(i+1)+': '+vo.orig+'→'+vo.dest+'</strong> · '+(vo.cia||'-')+' '+(vo.num||'')+' · '+vo.classe+(vo.ida?'<br>Saída: '+vo.ida:'')+(vo.pnr?' · PNR: '+vo.pnr:'')+(vo.bilhete?' · Bilhete: '+vo.bilhete:'')+(vo.custo?' · Custo: '+fmtBRL(vo.custo):'')+' </div>').join('')+'</div>';}
-  else if(d.hotel){body+='<div style="margin-bottom:10px"><div class="ct">🏨 Hospedagem</div><div style="padding:10px;background:#f8faff;border-radius:8px;font-size:12px"><strong>'+d.hotel+'</strong> · '+(d.cat||'')+' · Check-in: '+fmtD(d.chkin)+' · Check-out: '+fmtD(d.chkout)+'</div></div>';}
-  body+='<div style="margin-bottom:12px"><div class="ct">💰 Financeiro</div><div class="g4"><div class="mc"><div class="mc-lbl">Custo</div><div style="font-weight:600">'+fmtBRL(v.custo)+'</div></div><div class="mc"><div class="mc-lbl">Fee</div><div style="font-weight:600">'+fmtBRL(v.fee)+'</div></div><div class="mc"><div class="mc-lbl">Margem</div><div style="font-weight:600">'+fmtBRL(v.margem)+'</div></div><div class="mc"><div class="mc-lbl">Pagamento</div><div style="font-size:12px">'+(v.pgto_modalidade==='parcelado'?v.pgto+' '+v.pgto_parcelas+'x '+fmtBRL(v.pgto_valor_parcela):v.pgto)+'</div></div></div></div>';
-  body+='<div class="sep"></div><div style="font-size:12px;font-weight:600;color:#666;margin-bottom:8px;text-transform:uppercase">✏ Editar</div>';
-  body+='<div class="g3" style="margin-bottom:10px"><div class="field"><label>Status</label><select id="ev-status-'+id+'"><option value="pendente"'+(v.status==='pendente'?' selected':'')+'>Pendente</option><option value="parcial"'+(v.status==='parcial'?' selected':'')+'>Parcial</option><option value="pago"'+(v.status==='pago'?' selected':'')+'>Pago</option></select></div><div class="field"><label>Vencimento</label><input type="date" id="ev-venc-'+id+'" value="'+(v.vencimento||'')+'"></div><div class="field"><label>Observações</label><input type="text" id="ev-obs-'+id+'" value="'+(v.obs||'')+'"></div></div>';
-  body+='<div class="br"><button class="bp" onclick="salvarEditVenda(\''+id+'\')">✔ Salvar</button><button class="bs" onclick="fecharModal()">Fechar</button></div><div id="ev-alert-'+id+'" style="margin-top:8px"></div>';
+
+  // Montar passageiros para exibição
+  let paxInfo='';
+  if(d.passageiros&&d.passageiros.length){
+    paxInfo=d.passageiros.map(p=>'<strong>'+p.nome+'</strong>'+(p.doc?' · '+p.doc:'')+(p.nasc?' · Nasc: '+fmtD(p.nasc):'')).join('<br>');
+  } else if(d.hosp) paxInfo='<strong>'+d.hosp+'</strong>'+(d.doc?' · '+d.doc:'');
+  else if(d.pax) paxInfo='<strong>'+d.pax+'</strong>';
+
+  // Montar voos para exibição
+  let voosInfo='';
+  if(d.voos&&d.voos.length){
+    voosInfo=d.voos.map((vo,i)=>'<div style="padding:8px 10px;background:#f8faff;border:1px solid #c8d8f0;border-radius:6px;margin-bottom:4px;font-size:12px">'+
+      '<strong>Voo '+(i+1)+': '+(vo.orig||'?')+'→'+(vo.dest||'?')+'</strong> · '+(vo.cia||'-')+' '+(vo.num||'')+' · '+vo.classe+
+      (vo.ida?'<br>Saída: '+vo.ida:'')+(vo.pnr?' · PNR: '+vo.pnr:'')+(vo.bilhete?' · Bilhete: '+vo.bilhete:'')+
+      (vo.custo?'<span style="float:right;color:#185FA5;font-weight:600">Custo: '+fmtBRL(vo.custo)+'</span>':'')+
+      '</div>').join('');
+  } else if(d.hotel){
+    voosInfo='<div style="padding:8px 10px;background:#f8faff;border-radius:6px;font-size:12px">'+
+      '<strong>'+d.hotel+'</strong> · '+(d.cat||'')+' · Check-in: '+fmtD(d.chkin)+' · Check-out: '+fmtD(d.chkout)+' · '+(d.dias||1)+' diária(s)</div>';
+  }
+
+  const pgtoStr = v.pgto_modalidade==='parcelado'
+    ? v.pgto+' '+v.pgto_parcelas+'x '+fmtBRL(v.pgto_valor_parcela)
+    : v.pgto||'-';
+
+  const body = `
+  <div class="g4" style="margin-bottom:14px">
+    <div class="mc"><div class="mc-lbl">Venda</div><div style="font-weight:700;color:#185FA5">${v.ref}</div></div>
+    <div class="mc"><div class="mc-lbl">Tipo</div><span class="badge b-${v.tipo}">${tl(v.tipo)}</span></div>
+    <div class="mc"><div class="mc-lbl">Valor</div><div style="font-weight:700">${fmtBRL(v.venda)}</div></div>
+    <div class="mc"><div class="mc-lbl">Status</div><span class="badge b-${v.status}">${v.status}</span></div>
+  </div>
+  <div class="g2" style="margin-bottom:12px">
+    <div><div class="ct">🧳 Passageiro(s)</div><div style="font-size:13px;line-height:1.6">${paxInfo||'-'}</div></div>
+    <div><div class="ct">✈️ Serviço</div>${voosInfo||'<div style="font-size:12px;color:#888">—</div>'}</div>
+  </div>
+  <div class="g4" style="margin-bottom:12px">
+    <div class="mc"><div class="mc-lbl">Custo</div><div style="font-weight:600">${fmtBRL(v.custo)}</div></div>
+    <div class="mc"><div class="mc-lbl">Fee</div><div style="font-weight:600">${fmtBRL(v.fee)}</div></div>
+    <div class="mc"><div class="mc-lbl">Margem</div><div style="font-weight:600">${fmtBRL(v.margem)}</div></div>
+    <div class="mc"><div class="mc-lbl">Pagamento</div><div style="font-size:12px">${pgtoStr}</div></div>
+  </div>
+  ${v.obs?'<div class="info-box" style="margin-bottom:12px">📝 '+v.obs+'</div>':''}
+  <div class="sep"></div>
+  <div style="font-size:12px;font-weight:600;color:#666;margin-bottom:10px;text-transform:uppercase">✏ Editar campos rápidos</div>
+  <div class="g3" style="margin-bottom:12px">
+    <div class="field"><label>Status</label>
+      <select id="ev-status-${id}">
+        <option value="pendente" ${v.status==='pendente'?'selected':''}>Pendente</option>
+        <option value="parcial" ${v.status==='parcial'?'selected':''}>Parcial</option>
+        <option value="pago" ${v.status==='pago'?'selected':''}>Pago</option>
+      </select>
+    </div>
+    <div class="field"><label>Vencimento</label><input type="date" id="ev-venc-${id}" value="${v.vencimento||''}"></div>
+    <div class="field"><label>Observações</label><input type="text" id="ev-obs-${id}" value="${v.obs||''}"></div>
+  </div>
+  <div class="br" style="margin-bottom:12px">
+    <button class="bp" onclick="salvarEditVenda('${id}')">✔ Salvar alterações</button>
+  </div>
+  <div id="ev-alert-${id}" style="margin-top:4px;margin-bottom:8px"></div>
+  <div class="sep"></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <button class="bs" style="background:#E6F1FB;border-color:#378ADD;color:#185FA5;font-weight:600" onclick="fecharModal();goTo('vendas',document.querySelector('.nb'));editarVendaCompleta('${id}')">
+      🖊 Editar venda completa
+    </button>
+    <button class="bd" style="padding:8px 16px;font-size:13px" onclick="excluirVenda('${id}')">
+      🗑 Excluir venda
+    </button>
+  </div>`;
+
   document.getElementById('modal-body').innerHTML=body;
   document.getElementById('modal-venda').classList.add('open');
 }
 function fecharModal(){document.getElementById('modal-venda').classList.remove('open');}
-// modal click handler registrado no init
+document.addEventListener('DOMContentLoaded',function(){
+  const mv=document.getElementById('modal-venda');
+  if(mv)mv.addEventListener('click',function(e){if(e.target===this)fecharModal();});
+});
+
+async function excluirVenda(id){
+  if(!confirm('Tem certeza que deseja EXCLUIR esta venda? Esta ação não pode ser desfeita.'))return;
+  const{error}=await db.from('vendas').delete().eq('id',id);
+  if(error){alert('Erro ao excluir: '+error.message);return;}
+  vendas=vendas.filter(v=>v.id!==id);
+  fecharModal();
+  atualizaDash();
+  showAlert('v-alert','✅ Venda excluída.','s');
+}
+
+// Edição completa de venda — recarrega o formulário com os dados
+function editarVendaCompleta(id){
+  const v=vendas.find(x=>x.id===id);if(!v)return;
+  const d=v.detalhes||{};
+
+  // Setar tipo
+  setTipo(v.tipo, document.querySelector('.tab.active'));
+  document.querySelectorAll('.tab').forEach(b=>{
+    if((b.textContent.includes('Aéreo')&&v.tipo==='aereo')||
+       (b.textContent.includes('Hospedagem')&&v.tipo==='hospedagem')||
+       (b.textContent.includes('Transfer')&&v.tipo==='transfer'))
+      b.classList.add('active');
+    else b.classList.remove('active');
+  });
+
+  // Cliente e ref
+  document.getElementById('v-cli').value=v.cliente_id||'';
+  sv('v-ref',v.ref);
+  sv('v-venc',v.vencimento||'');
+
+  // Valores
+  document.getElementById('v-custo').value=v.custo||'';
+  document.getElementById('v-fee').value=v.fee||'';
+  document.getElementById('v-margem').value=v.margem||'';
+  document.getElementById('v-venda').value=v.venda||'';
+  sv('v-obs',v.obs||'');
+  sv('v-pgto',v.pgto||'PIX');
+  document.getElementById('v-status').value=v.status||'pendente';
+  calcLucroRev();
+
+  // Parcelas
+  if(v.pgto_modalidade==='parcelado'){
+    setParc('parcelado');
+    numParc=v.pgto_parcelas||1;
+    buildParcGrid();
+  } else {
+    setParc('avista');
+  }
+
+  if(v.tipo==='aereo'){
+    // Passageiros
+    initPaxBlocks();
+    const paxList=d.passageiros||[];
+    paxList.forEach((p,i)=>{
+      if(i>0) addPaxBlock();
+      sv('pnome-'+(i+1),p.nome||'');
+      sv('pdoc-'+(i+1),p.doc||'');
+      sv('pnasc-'+(i+1),p.nasc||'');
+      sv('pnac-'+(i+1),p.nac||'');
+      sv('ptel-'+(i+1),p.tel||'');
+      sv('pemail-'+(i+1),p.email||'');
+    });
+    // Voos
+    initVooBlocks();
+    const vooList=d.voos||[];
+    vooList.forEach((vo,i)=>{
+      if(i>0) addVooBlock();
+      sv('vcia-'+(i+1),vo.cia||'');
+      sv('vnum-'+(i+1),vo.num||'');
+      sv('vorig-'+(i+1),vo.orig||'');
+      sv('vdest-'+(i+1),vo.dest||'');
+      sv('vpnr-'+(i+1),vo.pnr||'');
+      sv('vbil-'+(i+1),vo.bilhete||'');
+      sv('vsolic-'+(i+1),vo.solic||'');
+      sv('vida-'+(i+1),vo.ida||'');
+      sv('vchg-'+(i+1),vo.chg||'');
+      if(document.getElementById('vclasse-'+(i+1)))
+        document.getElementById('vclasse-'+(i+1)).value=vo.classe||'Econômica';
+      if(document.getElementById('vbag-'+(i+1)))
+        document.getElementById('vbag-'+(i+1)).value=vo.bag||'Sem bagagem';
+    });
+    atualizaVooValores();
+    // Custos por voo
+    vooList.forEach((vo,i)=>{
+      const el=document.getElementById('vcusto-'+(i+1));
+      if(el&&vo.custo) el.value=vo.custo;
+    });
+  } else if(v.tipo==='hospedagem'){
+    sv('ho-hosp',d.hosp||'');sv('ho-doc',d.doc||'');sv('ho-hotel',d.hotel||'');
+    sv('ho-end',d.end||'');sv('ho-in',d.chkin||'');sv('ho-out',d.chkout||'');
+    sv('ho-quarto',d.quarto||'');sv('ho-num',d.num||'1');sv('ho-dias',d.dias||'1');
+  } else {
+    sv('tr-pax',d.pax||'');sv('tr-tel',d.tel||'');sv('tr-orig',d.orig||'');
+    sv('tr-dest',d.dest||'');sv('tr-data',d.data||'');sv('tr-num',d.num||'1');
+  }
+
+  // Marcar que é edição (para sobrescrever em vez de inserir)
+  window._editandoVendaId = id;
+  document.getElementById('v-ref').style.color='#BA7517';
+  showAlert('v-alert','✏ Editando venda '+v.ref+'. Faça as alterações e clique em Salvar venda.','i');
+  window.scrollTo(0,0);
+}
+
 async function salvarEditVenda(id){
   const status=document.getElementById('ev-status-'+id)?.value,vencimento=document.getElementById('ev-venc-'+id)?.value||null,obs=document.getElementById('ev-obs-'+id)?.value.trim()||null;
   const{error}=await db.from('vendas').update({status,vencimento,obs}).eq('id',id);
