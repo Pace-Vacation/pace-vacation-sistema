@@ -272,6 +272,30 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
       <div class="field"><label>Margem embutida (R$)</label><input type="number" id="v-margem" step="0.01" placeholder="0,00" oninput="calcLucro()"></div>
       <div class="field"><label>Preço de venda (R$)</label><input type="number" id="v-venda" step="0.01" placeholder="0,00" style="font-weight:600" oninput="calcLucroRev()"></div>
     </div>
+    <!-- DESCONTO -->
+    <div style="background:#fff8ed;border:1px solid #f0d080;border-radius:10px;padding:12px 14px;margin-top:10px">
+      <div style="font-size:11px;font-weight:600;color:#875500;margin-bottom:8px;text-transform:uppercase">🏷 Desconto (opcional)</div>
+      <div class="g3">
+        <div class="field"><label>Tipo de desconto</label>
+          <select id="v-desc-tipo" onchange="calcDesconto()">
+            <option value="">Sem desconto</option>
+            <option value="fixo">Valor fixo (R$)</option>
+            <option value="pct">Percentual (%)</option>
+          </select>
+        </div>
+        <div class="field" id="v-desc-val-box" style="display:none"><label id="v-desc-val-label">Valor do desconto</label>
+          <input type="number" id="v-desc-val" step="0.01" placeholder="0,00" oninput="calcDesconto()">
+        </div>
+        <div class="field" id="v-desc-motivo-box" style="display:none"><label>Motivo (opcional)</label>
+          <input type="text" id="v-desc-motivo" placeholder="Ex: cliente fidelidade, promoção...">
+        </div>
+      </div>
+      <div id="v-desc-resumo" style="display:none;margin-top:8px;padding:8px 12px;background:#fff;border-radius:8px;border:1px solid #f0d080;font-size:12px">
+        <div style="display:flex;justify-content:space-between"><span>Preço original</span><span id="v-desc-original">R$ 0,00</span></div>
+        <div style="display:flex;justify-content:space-between;color:#E24B4A"><span id="v-desc-label">Desconto</span><span id="v-desc-amount">- R$ 0,00</span></div>
+        <div style="display:flex;justify-content:space-between;font-weight:700;border-top:1px solid #eee;margin-top:6px;padding-top:6px;color:#185FA5"><span>Preço com desconto</span><span id="v-desc-final">R$ 0,00</span></div>
+      </div>
+    </div>
     <div class="calc-box">
       <div class="calc-row"><span>Fee + Margem (base tributável)</span><span id="c-base">R$ 0,00</span></div>
       <div class="calc-row"><span>Simples Nacional 6%</span><span id="c-imp" style="color:#E24B4A">- R$ 0,00</span></div>
@@ -874,6 +898,8 @@ async function salvarVenda(){
   const fornCartaoId=gv('v-forn-cartao-id')||null;
   const fornParcelas=parseInt(document.getElementById('v-forn-parcelas')?.value)||1;
   const fornVencFatura=gv('v-forn-venc')||null;
+  const descInfo = getDescontoInfo();
+  if(descInfo) det.desconto = descInfo;
   const payload={ref:gv('v-ref'),cliente_id:cidId,tipo:tipoAtual,custo:custoVal,fee,margem:mg,venda,pgto:gv('v-pgto'),pgto_modalidade:modoParc,pgto_parcelas:modoParc==='parcelado'?numParc:1,pgto_valor_parcela:modoParc==='parcelado'?(venda/numParc):venda,status:gv('v-status'),vencimento:gv('v-venc')||null,obs:gv('v-obs')||null,mes,detalhes:det,forn_cartao_id:fornCartaoId,forn_parcelas:fornParcelas,forn_valor_parcela:fornCartaoId?(custoVal/fornParcelas):0,forn_venc_fatura:fornVencFatura};
 
   // Modo edição ou inserção
@@ -897,7 +923,8 @@ function limparVenda(){['v-custo','v-fee','v-margem','v-venda','ho-hosp','ho-doc
   const fb=document.getElementById('v-forn-fatura-box');if(fb)fb.style.display='none';
   const fp=document.getElementById('v-forn-parcelas');if(fp)fp.value='1';
   window._editandoVendaId=null;
-  document.getElementById('v-ref').style.color='#185FA5';}
+  document.getElementById('v-ref').style.color='#185FA5';
+  limparDesconto();}
 
 // Passageiros
 async function salvarPax(){const nome=gv('px-nome'),doc=gv('px-doc');if(!nome||!doc){showAlert('px-alert','Preencha nome e documento.','i');return;}if(passageiros.find(p=>p.nome.toLowerCase()===nome.toLowerCase()&&p.doc===doc)){showAlert('px-alert','Já cadastrado.','i');return;}const{data,error}=await db.from('passageiros').insert([{nome,doc,nasc:gv('px-nasc')||null,nac:gv('px-nac')||null,tel:gv('px-tel')||null,email:gv('px-email')||null,passport:gv('px-pass')||null,passvalid:gv('px-passval')||null,vinculo:gv('px-vinc')||null,obs:gv('px-obs')||null}]).select();if(error){showAlert('px-alert','Erro: '+error.message,'e');return;}passageiros.push(data[0]);['px-nome','px-doc','px-nasc','px-nac','px-tel','px-email','px-pass','px-passval','px-vinc','px-obs'].forEach(id=>sv(id,''));showAlert('px-alert','Passageiro salvo!','s');renderPax();}
@@ -1036,6 +1063,17 @@ function abrirVenda(id){
     <div class="mc"><div class="mc-lbl">Pagamento</div><div style="font-size:12px">${pgtoStr}</div></div>
   </div>
   ${v.obs?'<div class="info-box" style="margin-bottom:12px">📝 '+v.obs+'</div>':''}
+  \${(()=>{
+    const desc=v.detalhes&&v.detalhes.desconto;
+    if(!desc||!desc.desconto)return'';
+    return '<div style="background:#fff8ed;border:1px solid #f0d080;border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:12px">'
+      +'<strong style="color:#875500">🏷 Desconto aplicado: </strong>'
+      +fmtBRL(desc.desconto)
+      +' '+(desc.tipo==='pct'?'('+desc.valor+'%)':'(valor fixo)')
+      +(desc.motivo?' — '+desc.motivo:'')
+      +' <span style="color:#888">· Preço original: '+fmtBRL(desc.original)+'</span>'
+      +'</div>';
+  })()}
   <div class="sep"></div>
   <div style="font-size:12px;font-weight:600;color:#666;margin-bottom:10px;text-transform:uppercase">✏ Editar campos rápidos</div>
   <div class="g3" style="margin-bottom:12px">
@@ -1664,6 +1702,100 @@ function preencherFiltrosRec(){
     sel.innerHTML=(sid==='rec-filtro-cli'?'<option value="">Todos os clientes</option>':'<option value="">Selecione...</option>')+
       clientes.map(c=>'<option value="'+c.id+'">'+(c.seq||'')+' – '+c.nome+'</option>').join('');
   });
+}
+
+// ── DESCONTO ─────────────────────────────────────────────
+function calcDesconto(){
+  const tipo = gv('v-desc-tipo');
+  const valBox = document.getElementById('v-desc-val-box');
+  const motivoBox = document.getElementById('v-desc-motivo-box');
+  const resumo = document.getElementById('v-desc-resumo');
+
+  if(!tipo){
+    if(valBox) valBox.style.display='none';
+    if(motivoBox) motivoBox.style.display='none';
+    if(resumo) resumo.style.display='none';
+    // Restaurar preço original se havia desconto
+    const orig = parseFloat(document.getElementById('v-venda').dataset.original||0);
+    if(orig > 0){
+      document.getElementById('v-venda').value = orig.toFixed(2);
+      calcLucroRev();
+    }
+    return;
+  }
+
+  if(valBox) valBox.style.display='flex';
+  if(motivoBox) motivoBox.style.display='flex';
+
+  // Atualizar label
+  const label = document.getElementById('v-desc-val-label');
+  if(label) label.textContent = tipo==='fixo' ? 'Valor do desconto (R$)' : 'Percentual de desconto (%)';
+
+  // Calcular
+  const vendaInput = document.getElementById('v-venda');
+  // Guardar preço original antes do desconto
+  let precoOriginal = parseFloat(vendaInput.dataset.original || vendaInput.value) || 0;
+  if(!vendaInput.dataset.original && precoOriginal > 0){
+    vendaInput.dataset.original = precoOriginal;
+  }
+  if(!precoOriginal) return;
+
+  const descVal = parseFloat(document.getElementById('v-desc-val').value) || 0;
+  let desconto = 0;
+  if(tipo === 'fixo'){
+    desconto = Math.min(descVal, precoOriginal); // não pode ser maior que o preço
+  } else {
+    desconto = precoOriginal * (Math.min(descVal, 100) / 100);
+  }
+
+  const precoFinal = precoOriginal - desconto;
+
+  // Atualizar resumo
+  if(resumo){
+    resumo.style.display = descVal > 0 ? 'block' : 'none';
+    document.getElementById('v-desc-original').textContent = fmtBRL(precoOriginal);
+    document.getElementById('v-desc-label').textContent =
+      tipo==='fixo' ? 'Desconto (R$ '+descVal.toFixed(2)+')' : 'Desconto ('+descVal+'%)';
+    document.getElementById('v-desc-amount').textContent = '- ' + fmtBRL(desconto);
+    document.getElementById('v-desc-final').textContent = fmtBRL(precoFinal);
+  }
+
+  // Atualizar o campo de venda com o valor com desconto
+  if(descVal > 0){
+    vendaInput.value = precoFinal.toFixed(2);
+    calcLucroRev();
+  } else {
+    vendaInput.value = precoOriginal.toFixed(2);
+    calcLucroRev();
+  }
+}
+
+function getDescontoInfo(){
+  const tipo = gv('v-desc-tipo');
+  if(!tipo) return null;
+  const val = parseFloat(document.getElementById('v-desc-val')?.value)||0;
+  if(!val) return null;
+  const original = parseFloat(document.getElementById('v-venda').dataset.original||0);
+  const motivo = gv('v-desc-motivo');
+  const desconto = tipo==='fixo' ? val : original*(val/100);
+  return { tipo, valor: val, desconto, original, precoFinal: original - desconto, motivo };
+}
+
+function limparDesconto(){
+  const sel = document.getElementById('v-desc-tipo');
+  if(sel) sel.value = '';
+  const valEl = document.getElementById('v-desc-val');
+  if(valEl){ valEl.value=''; }
+  const motivoEl = document.getElementById('v-desc-motivo');
+  if(motivoEl) motivoEl.value='';
+  const vendaInput = document.getElementById('v-venda');
+  if(vendaInput) delete vendaInput.dataset.original;
+  const valBox = document.getElementById('v-desc-val-box');
+  const motivoBox = document.getElementById('v-desc-motivo-box');
+  const resumo = document.getElementById('v-desc-resumo');
+  if(valBox) valBox.style.display='none';
+  if(motivoBox) motivoBox.style.display='none';
+  if(resumo) resumo.style.display='none';
 }
 
 checkSession();
