@@ -511,19 +511,63 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
 </div>
 
 <div class="section" id="sec-relatorio">
-  <div class="card">
-    <div class="ct">🔍 Filtros</div>
-    <div class="g3">
-      <div class="field"><label>Cliente</label><select id="r-cli"><option value="">Todos</option></select></div>
-      <div class="field"><label>Tipo</label><select id="r-tipo"><option value="">Todos</option><option value="aereo">Aéreo</option><option value="hospedagem">Hospedagem</option><option value="transfer">Transfer</option></select></div>
-      <div class="field"><label>Status</label><select id="r-status"><option value="">Todos</option><option value="pago">Pago</option><option value="pendente">Pendente</option><option value="parcial">Parcial</option></select></div>
-    </div>
-    <div class="br">
-      <button class="bp" onclick="gerarRelatorio()">📊 Relatório</button>
-      <button class="bs" onclick="exportarCSV()">⬇ CSV</button>
-    </div>
+  <!-- Abas internas -->
+  <div class="tabs" style="margin-bottom:14px">
+    <button class="tab active" id="rtab-vendas" onclick="switchRelTab('vendas',this)">📋 Vendas</button>
+    <button class="tab" id="rtab-faturamento" onclick="switchRelTab('faturamento',this)">💰 Faturamento Mensal</button>
+    <button class="tab" id="rtab-lucro" onclick="switchRelTab('lucro',this)">📈 Lucro Real Mensal</button>
   </div>
-  <div id="rel-res"></div>
+
+  <!-- ABA VENDAS -->
+  <div id="rel-tab-vendas">
+    <div class="card">
+      <div class="ct">🔍 Filtros</div>
+      <div class="g3">
+        <div class="field"><label>Cliente</label><select id="r-cli"><option value="">Todos</option></select></div>
+        <div class="field"><label>Tipo</label><select id="r-tipo"><option value="">Todos</option><option value="aereo">Aéreo</option><option value="hospedagem">Hospedagem</option><option value="transfer">Transfer</option></select></div>
+        <div class="field"><label>Status</label><select id="r-status"><option value="">Todos</option><option value="pago">Pago</option><option value="pendente">Pendente</option><option value="parcial">Parcial</option></select></div>
+      </div>
+      <div class="br">
+        <button class="bp" onclick="gerarRelatorio()">📊 Gerar</button>
+        <button class="bs" onclick="exportarCSV()">⬇ CSV</button>
+      </div>
+    </div>
+    <div id="rel-res"></div>
+  </div>
+
+  <!-- ABA FATURAMENTO MENSAL -->
+  <div id="rel-tab-faturamento" style="display:none">
+    <div class="card">
+      <div class="ct">💰 Relatório de Faturamento Mensal (Regime de Caixa)</div>
+      <div class="info-box">Mostra o que efetivamente <strong>entrou na conta</strong> em cada mês. Vendas parceladas têm o valor distribuído pelo vencimento de cada parcela.</div>
+      <div class="g2" style="margin-bottom:10px">
+        <div class="field"><label>De</label><input type="month" id="fat-de" style="padding:7px 10px;border:1px solid #ccc;border-radius:8px;font-size:13px"></div>
+        <div class="field"><label>Até</label><input type="month" id="fat-ate" style="padding:7px 10px;border:1px solid #ccc;border-radius:8px;font-size:13px"></div>
+      </div>
+      <div class="br">
+        <button class="bp" onclick="gerarRelFaturamento()">💰 Gerar relatório</button>
+        <button class="bs" onclick="imprimirRel('rel-fat-resultado')">🖨 Imprimir</button>
+      </div>
+    </div>
+    <div id="rel-fat-resultado"></div>
+  </div>
+
+  <!-- ABA LUCRO REAL -->
+  <div id="rel-tab-lucro" style="display:none">
+    <div class="card">
+      <div class="ct">📈 Relatório de Lucro Real Mensal (Regime de Caixa)</div>
+      <div class="info-box">Mostra o <strong>lucro real</strong> de cada mês. Vendas parceladas têm fee+margem distribuídos proporcionalmente pelas parcelas. Despesas são deduzidas no mês em que ocorrem.</div>
+      <div class="g2" style="margin-bottom:10px">
+        <div class="field"><label>De</label><input type="month" id="luc-de" style="padding:7px 10px;border:1px solid #ccc;border-radius:8px;font-size:13px"></div>
+        <div class="field"><label>Até</label><input type="month" id="luc-ate" style="padding:7px 10px;border:1px solid #ccc;border-radius:8px;font-size:13px"></div>
+      </div>
+      <div class="br">
+        <button class="bp" onclick="gerarRelLucro()">📈 Gerar relatório</button>
+        <button class="bs" onclick="imprimirRel('rel-luc-resultado')">🖨 Imprimir</button>
+      </div>
+    </div>
+    <div id="rel-luc-resultado"></div>
+  </div>
 </div>
 
 <div class="section" id="sec-config">
@@ -1796,6 +1840,254 @@ function limparDesconto(){
   if(valBox) valBox.style.display='none';
   if(motivoBox) motivoBox.style.display='none';
   if(resumo) resumo.style.display='none';
+}
+
+// ── RELATÓRIOS MENSAIS ────────────────────────────────────
+
+function switchRelTab(tab, btn){
+  ['vendas','faturamento','lucro'].forEach(t=>{
+    const el=document.getElementById('rel-tab-'+t);
+    if(el) el.style.display = t===tab ? 'block' : 'none';
+  });
+  document.querySelectorAll('#sec-relatorio .tab').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  // Preencher datas padrão se vazias
+  const now = new Date();
+  const anoAtual = now.getFullYear();
+  const mesAtual = String(now.getMonth()+1).padStart(2,'0');
+  const mesInicio = anoAtual+'-01';
+  const mesFim = anoAtual+'-'+mesAtual;
+  if(tab==='faturamento'){
+    if(!document.getElementById('fat-de').value) document.getElementById('fat-de').value=mesInicio;
+    if(!document.getElementById('fat-ate').value) document.getElementById('fat-ate').value=mesFim;
+  }
+  if(tab==='lucro'){
+    if(!document.getElementById('luc-de').value) document.getElementById('luc-de').value=mesInicio;
+    if(!document.getElementById('luc-ate').value) document.getElementById('luc-ate').value=mesFim;
+  }
+}
+
+// Gera lista de meses entre dois valores "YYYY-MM"
+function listaMeses(de, ate){
+  const meses=[];
+  let [yDe,mDe]= de.split('-').map(Number);
+  let [yAte,mAte]= ate.split('-').map(Number);
+  while(yDe < yAte || (yDe===yAte && mDe<=mAte)){
+    meses.push({ano:yDe, mes:mDe, key: yDe+'-'+String(mDe).padStart(2,'0'), label: MESES[mDe-1]+' '+yDe});
+    mDe++;
+    if(mDe>12){mDe=1;yDe++;}
+  }
+  return meses;
+}
+
+// Para uma venda parcelada, distribui o valor entre os meses das parcelas
+// Retorna: [{mesKey, valor}]
+function distribuirParcelas(venda, campo){
+  // campo: 'venda' (faturamento bruto) ou 'base' (fee+margem)
+  const parcelas = venda.pgto_parcelas || 1;
+  const valorTotal = campo==='venda'
+    ? parseFloat(venda.venda||0)
+    : parseFloat(venda.fee||0) + parseFloat(venda.margem||0);
+  const valorParcela = valorTotal / parcelas;
+
+  // Data base: vencimento da 1ª parcela ou data da venda
+  let dataBase;
+  if(venda.vencimento){
+    dataBase = new Date(venda.vencimento+'T12:00:00');
+  } else {
+    dataBase = new Date(venda.created_at);
+  }
+
+  const resultado=[];
+  for(let i=0;i<parcelas;i++){
+    const d = new Date(dataBase.getFullYear(), dataBase.getMonth()+i, dataBase.getDate());
+    const mesKey = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    resultado.push({mesKey, valor: valorParcela});
+  }
+  return resultado;
+}
+
+async function gerarRelFaturamento(){
+  const de = document.getElementById('fat-de').value;
+  const ate = document.getElementById('fat-ate').value;
+  if(!de||!ate){alert('Selecione o período.');return;}
+
+  const el = document.getElementById('rel-fat-resultado');
+  el.innerHTML='<div class="empty">Calculando...</div>';
+
+  // Buscar todas as vendas do período + um pouco antes (para pegar parcelas que vencem no período)
+  const{data:todasVendas} = await db.from('vendas').select('*,clientes(nome)').order('created_at',{ascending:true});
+  const meses = listaMeses(de, ate);
+  const aliq = parseFloat(cfg.aliq||6)/100;
+
+  // Montar mapa: mesKey -> {faturamento, parcelas}
+  const mapaFat = {};
+  meses.forEach(m=>{ mapaFat[m.key]={label:m.label, bruto:0, qtdVendas:0, vendas:[]}; });
+
+  (todasVendas||[]).forEach(v=>{
+    const dist = distribuirParcelas(v, 'venda');
+    dist.forEach(({mesKey, valor})=>{
+      if(mapaFat[mesKey]){
+        mapaFat[mesKey].bruto += valor;
+        mapaFat[mesKey].qtdVendas++;
+        mapaFat[mesKey].vendas.push({ref:v.ref, valor, cliente:v.clientes?.nome||'-', parcelas:v.pgto_parcelas||1, pgto:v.pgto});
+      }
+    });
+  });
+
+  const totalGeral = Object.values(mapaFat).reduce((s,m)=>s+m.bruto,0);
+  const melhorMes = Object.values(mapaFat).reduce((best,m)=>m.bruto>best.bruto?m:best, {bruto:0,label:'-'});
+
+  let html = `<div class="card">
+    <div class="g3" style="margin-bottom:16px">
+      <div class="mc"><div class="mc-lbl">Total do período</div><div class="mc-val blue">${fmtBRL(totalGeral)}</div></div>
+      <div class="mc"><div class="mc-lbl">Melhor mês</div><div class="mc-val green">${melhorMes.label}</div></div>
+      <div class="mc"><div class="mc-lbl">Média mensal</div><div class="mc-val amber">${fmtBRL(meses.length?totalGeral/meses.length:0)}</div></div>
+    </div>
+    <div class="ct">📅 Faturamento por mês</div>
+    <div class="tbl-wrap">
+    <table class="dt"><thead><tr>
+      <th>Mês</th><th>Faturamento recebido</th><th>Nº entradas</th><th>Barra</th>
+    </tr></thead><tbody>`;
+
+  const maxVal = Math.max(...Object.values(mapaFat).map(m=>m.bruto), 1);
+  meses.forEach(m=>{
+    const d = mapaFat[m.key];
+    const pct = Math.round((d.bruto/maxVal)*100);
+    html += `<tr>
+      <td style="font-weight:600">${d.label}</td>
+      <td style="font-weight:700;color:#185FA5">${fmtBRL(d.bruto)}</td>
+      <td>${d.qtdVendas}</td>
+      <td style="min-width:120px">
+        <div style="background:#E6F1FB;border-radius:4px;height:12px;width:100%">
+          <div style="background:#185FA5;border-radius:4px;height:12px;width:${pct}%"></div>
+        </div>
+      </td>
+    </tr>`;
+    // Detalhe das vendas do mês
+    if(d.vendas.length){
+      html+=`<tr><td colspan="4" style="padding:0 8px 8px 24px">`;
+      html+=`<div style="font-size:11px;color:#666">`+
+        d.vendas.map(v=>`<span style="display:inline-block;margin:2px 4px 2px 0;padding:2px 8px;background:#f0f0f0;border-radius:12px">${v.ref} ${v.parcelas>1?'(1/'+v.parcelas+'x)':''} ${fmtBRL(v.valor)}</span>`).join('')+
+        `</div></td></tr>`;
+    }
+  });
+
+  html += `</tbody></table></div></div>`;
+  el.innerHTML = html;
+}
+
+async function gerarRelLucro(){
+  const de = document.getElementById('luc-de').value;
+  const ate = document.getElementById('luc-ate').value;
+  if(!de||!ate){alert('Selecione o período.');return;}
+
+  const el = document.getElementById('rel-luc-resultado');
+  el.innerHTML='<div class="empty">Calculando...</div>';
+
+  const{data:todasVendas} = await db.from('vendas').select('*').order('created_at',{ascending:true});
+  const{data:todasDesp} = await db.from('despesas').select('*').order('data',{ascending:true});
+  const meses = listaMeses(de, ate);
+  const aliq = parseFloat(cfg.aliq||6)/100;
+
+  // Montar mapa por mês
+  const mapaLuc = {};
+  meses.forEach(m=>{ mapaLuc[m.key]={label:m.label, baseRec:0, imposto:0, despesas:0, lucro:0, vendas:[]}; });
+
+  // Distribuir fee+margem proporcional às parcelas
+  (todasVendas||[]).forEach(v=>{
+    const dist = distribuirParcelas(v, 'base');
+    dist.forEach(({mesKey, valor})=>{
+      if(mapaLuc[mesKey]){
+        const imp = valor * aliq;
+        mapaLuc[mesKey].baseRec += valor;
+        mapaLuc[mesKey].imposto += imp;
+        mapaLuc[mesKey].vendas.push({
+          ref:v.ref,
+          base:valor,
+          imp,
+          liquido: valor-imp,
+          parcelas:v.pgto_parcelas||1
+        });
+      }
+    });
+  });
+
+  // Adicionar despesas (regime competência — no mês em que ocorrem)
+  (todasDesp||[]).forEach(d=>{
+    if(!d.data)return;
+    const dt = new Date(d.data+'T12:00:00');
+    const mesKey = dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');
+    if(mapaLuc[mesKey]) mapaLuc[mesKey].despesas += parseFloat(d.valor||0);
+  });
+
+  // Calcular lucro real
+  Object.values(mapaLuc).forEach(m=>{
+    m.lucro = m.baseRec - m.imposto - m.despesas;
+  });
+
+  const totalBase = Object.values(mapaLuc).reduce((s,m)=>s+m.baseRec,0);
+  const totalImp = Object.values(mapaLuc).reduce((s,m)=>s+m.imposto,0);
+  const totalDesp = Object.values(mapaLuc).reduce((s,m)=>s+m.despesas,0);
+  const totalLucro = Object.values(mapaLuc).reduce((s,m)=>s+m.lucro,0);
+  const melhorMes = Object.values(mapaLuc).reduce((b,m)=>m.lucro>b.lucro?m:b,{lucro:-Infinity,label:'-'});
+
+  let html = `<div class="card">
+    <div class="g4" style="margin-bottom:16px">
+      <div class="mc"><div class="mc-lbl">Fee+Margem recebido</div><div class="mc-val amber">${fmtBRL(totalBase)}</div></div>
+      <div class="mc"><div class="mc-lbl">Simples ${cfg.aliq||6}% total</div><div class="mc-val red">${fmtBRL(totalImp)}</div></div>
+      <div class="mc"><div class="mc-lbl">Despesas totais</div><div class="mc-val amber">${fmtBRL(totalDesp)}</div></div>
+      <div class="mc"><div class="mc-lbl">Lucro líquido real</div><div class="mc-val ${totalLucro>=0?'green':'red'}">${fmtBRL(totalLucro)}</div></div>
+    </div>
+    <div class="ct">📈 Lucro real por mês</div>
+    <div class="tbl-wrap">
+    <table class="dt"><thead><tr>
+      <th>Mês</th><th>Fee+Margem recebido</th><th>Simples 6%</th><th>Despesas</th><th>Lucro líquido</th><th>Margem</th>
+    </tr></thead><tbody>`;
+
+  meses.forEach(m=>{
+    const d=mapaLuc[m.key];
+    const marg = d.baseRec>0 ? (d.lucro/d.baseRec*100).toFixed(1)+'%' : '—';
+    const lucroColor = d.lucro>=0?'#1D9E75':'#E24B4A';
+    html += `<tr>
+      <td style="font-weight:600">${d.label}</td>
+      <td>${fmtBRL(d.baseRec)}</td>
+      <td style="color:#E24B4A">(${fmtBRL(d.imposto)})</td>
+      <td style="color:#BA7517">(${fmtBRL(d.despesas)})</td>
+      <td style="font-weight:700;color:${lucroColor}">${fmtBRL(d.lucro)}</td>
+      <td style="color:#888">${marg}</td>
+    </tr>`;
+    // Detalhe de vendas do mês
+    if(d.vendas.length){
+      html+=`<tr><td colspan="6" style="padding:0 8px 8px 24px">
+        <div style="font-size:11px;color:#666">`+
+        d.vendas.map(v=>`<span style="display:inline-block;margin:2px 4px 2px 0;padding:2px 8px;background:#f0faf5;border-radius:12px;border:1px solid #b8dfc8">${v.ref} ${v.parcelas>1?'(1/'+v.parcelas+'x)':''} base: ${fmtBRL(v.base)} → líq: ${fmtBRL(v.liquido)}</span>`).join('')+
+        `</div></td></tr>`;
+    }
+  });
+
+  // Linha total
+  html += `</tbody><tfoot><tr style="background:#f8f8f8;font-weight:700">
+    <td>TOTAL</td>
+    <td>${fmtBRL(totalBase)}</td>
+    <td style="color:#E24B4A">(${fmtBRL(totalImp)})</td>
+    <td style="color:#BA7517">(${fmtBRL(totalDesp)})</td>
+    <td style="color:${totalLucro>=0?'#1D9E75':'#E24B4A'}">${fmtBRL(totalLucro)}</td>
+    <td>${totalBase>0?(totalLucro/totalBase*100).toFixed(1)+'%':'—'}</td>
+  </tr></tfoot></table></div>
+  <div style="margin-top:10px;font-size:11px;color:#888;padding:8px 12px;background:#f9f9f9;border-radius:6px;border-left:3px solid #1D9E75">
+    ✅ Regime de caixa: vendas parceladas têm o fee+margem distribuído proporcionalmente pelo vencimento de cada parcela. Despesas lançadas no mês em que ocorrem.
+  </div></div>`;
+
+  el.innerHTML = html;
+}
+
+function imprimirRel(elId){
+  const c = document.getElementById(elId)?.innerHTML;
+  if(!c){alert('Gere o relatório primeiro.');return;}
+  document.getElementById('print-area').innerHTML=c;
+  window.print();
+  setTimeout(()=>document.getElementById('print-area').innerHTML='',1000);
 }
 
 checkSession();
