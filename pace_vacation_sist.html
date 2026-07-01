@@ -989,56 +989,158 @@ function editForn(id){const f=fornecedores.find(x=>x.id===id);if(!f)return;sv('f
 async function delForn(id){if(!confirm('Remover?'))return;await db.from('fornecedores').delete().eq('id',id);fornecedores=fornecedores.filter(f=>f.id!==id);renderForn();}
 
 // Despesas
-async function salvarDesp(){const desc=gv('dp-desc'),valor=parseFloat(document.getElementById('dp-val').value)||0,data=gv('dp-data');if(!desc||!valor||!data){showAlert('dp-alert','Preencha descrição, valor e data.','i');return;}const dt=new Date(data+'T12:00:00');const mes=getMesStr(dt.getMonth(),dt.getFullYear());const{data:rd,error}=await db.from('despesas').insert([{descricao:desc,categoria:gv('dp-cat'),tipo:gv('dp-tipo'),valor,data,mes,status:gv('dp-status'),obs:gv('dp-obs')||null}]).select();if(error){showAlert('dp-alert','Erro: '+error.message,'e');return;}despesas.unshift(rd[0]);['dp-desc','dp-val','dp-data','dp-obs'].forEach(id=>sv(id,''));showAlert('dp-alert','Despesa lançada!','s');populateMesFiltro();renderDesp();atualizaDash();}
+async function salvarDesp(){
+  const desc=gv('dp-desc'),valor=parseFloat(document.getElementById('dp-val').value)||0,data=gv('dp-data');
+  if(!desc||!valor||!data){showAlert('dp-alert','Preencha descrição, valor e data.','i');return;}
+  const dt=new Date(data+'T12:00:00');
+  const mes=getMesStr(dt.getMonth(),dt.getFullYear());
+  const{data:rd,error}=await db.from('despesas').insert([{
+    descricao:desc,categoria:gv('dp-cat'),tipo:gv('dp-tipo'),
+    valor,data,mes,status:gv('dp-status'),obs:gv('dp-obs')||null
+  }]).select();
+  if(error){showAlert('dp-alert','Erro: '+error.message,'e');return;}
+  despesas.unshift(rd[0]);
+  ['dp-desc','dp-val','dp-data','dp-obs'].forEach(id=>sv(id,''));
+  showAlert('dp-alert','Despesa lançada!','s');
+  await renderDesp();
+  atualizaDash();
+}
+
 async function replicarFixas(){
-  const now=new Date();const ma=getMesStr(now.getMonth(),now.getFullYear());
-  const ant=new Date(now.getFullYear(),now.getMonth()-1,1);const mant=getMesStr(ant.getMonth(),ant.getFullYear());
-  const fx=despesas.filter(d=>d.tipo==='fixa'&&d.mes===mant);
-  if(!fx.length){showAlert('dp-alert','Nenhuma fixa no mês anterior.','i');return;}
-  const ja=despesas.filter(d=>d.tipo==='fixa'&&d.mes===ma).map(d=>d.descricao);
-  const novas=fx.filter(d=>!ja.includes(d.descricao));
-  if(!novas.length){showAlert('dp-alert','Todas as fixas já lançadas.','i');return;}
+  const now=new Date();
+  const ma=getMesStr(now.getMonth(),now.getFullYear());
+  const ant=new Date(now.getFullYear(),now.getMonth()-1,1);
+  const mant=getMesStr(ant.getMonth(),ant.getFullYear());
+
+  // Busca fixas do mês anterior DIRETO DO BANCO
+  const{data:fx,error:e1}=await db.from('despesas').select('*').eq('tipo','fixa').eq('mes',mant);
+  if(e1||!fx||!fx.length){showAlert('dp-alert','Nenhuma despesa fixa no mês anterior ('+mant+').','i');return;}
+
+  // Busca fixas já lançadas no mês atual
+  const{data:jaLancadas}=await db.from('despesas').select('descricao').eq('tipo','fixa').eq('mes',ma);
+  const jaDesc=(jaLancadas||[]).map(d=>d.descricao);
+  const novas=fx.filter(d=>!jaDesc.includes(d.descricao));
+  if(!novas.length){showAlert('dp-alert','Todas as despesas fixas de '+mant+' já foram lançadas em '+ma+'.','i');return;}
+
+  // Replica com mesma data (dia) do mês atual
   const inserts=novas.map(d=>{
     const dataAnt=new Date(d.data+'T12:00:00');
-    const novaData=new Date(now.getFullYear(),now.getMonth(),dataAnt.getDate());
+    const dia=dataAnt.getDate();
+    const novaData=new Date(now.getFullYear(),now.getMonth(),dia);
     const novaDataStr=novaData.getFullYear()+'-'+String(novaData.getMonth()+1).padStart(2,'0')+'-'+String(novaData.getDate()).padStart(2,'0');
-    return{descricao:d.descricao,categoria:d.categoria,tipo:'fixa',valor:d.valor,data:novaDataStr,mes:ma,status:'pendente',obs:'Replicado automaticamente'};
+    return{descricao:d.descricao,categoria:d.categoria,tipo:'fixa',valor:d.valor,data:novaDataStr,mes:ma,status:'pendente',obs:'Replicado de '+mant};
   });
+
   const{data:rd,error}=await db.from('despesas').insert(inserts).select();
   if(error){showAlert('dp-alert','Erro: '+error.message,'e');return;}
-  despesas.unshift(...rd);populateMesFiltro();renderDesp();atualizaDash();showAlert('dp-alert',novas.length+' despesa(s) replicada(s) com a mesma data de vencimento!','s');
+  despesas.unshift(...rd);
+  showAlert('dp-alert','✅ '+novas.length+' despesa(s) fixa(s) replicada(s) de '+mant+' para '+ma+'!','s');
+  await renderDesp();
+  atualizaDash();
 }
-function populateMesFiltro(){const sel=document.getElementById('dp-mes');if(!sel)return;const meses=[...new Set(despesas.map(d=>d.mes).filter(Boolean))].sort().reverse();sel.innerHTML=[...new Set([getMesAtualStr(),...meses])].map(m=>'<option value="'+m+'">'+m+'</option>').join('');}
-function renderDesp(){
-  populateMesFiltro();const sel=document.getElementById('dp-mes');const mes=sel?sel.value:getMesAtualStr();
-  const f=despesas.filter(d=>d.mes===mes);const el=document.getElementById('lista-desp');
-  if(!f.length){el.innerHTML='<div class="empty">Nenhuma despesa neste mês.</div>';return;}
+
+async function populateMesFiltro(){
+  // Busca todos os meses distintos do banco
+  const sel=document.getElementById('dp-mes');if(!sel)return;
+  const{data}=await db.from('despesas').select('mes').order('mes',{ascending:false});
+  const meses=[...new Set((data||[]).map(d=>d.mes).filter(Boolean))].sort().reverse();
+  const atual=getMesAtualStr();
+  const todos=[...new Set([atual,...meses])];
+  const valAtual=sel.value||atual;
+  sel.innerHTML=todos.map(m=>'<option value="'+m+'"'+(m===valAtual?' selected':'')+'>'+m+'</option>').join('');
+}
+
+async function renderDesp(){
+  await populateMesFiltro();
+  const sel=document.getElementById('dp-mes');
+  const mes=sel?sel.value:getMesAtualStr();
+  const el=document.getElementById('lista-desp');
+  el.innerHTML='<div class="empty" style="padding:12px">Carregando...</div>';
+  const{data:f,error}=await db.from('despesas').select('*').eq('mes',mes).order('data',{ascending:true});
+  if(error){el.innerHTML='<div class="alert alert-e">Erro: '+error.message+'</div>';return;}
+  if(!f||!f.length){el.innerHTML='<div class="empty">Nenhuma despesa em '+mes+'.</div>';return;}
+  const ids=f.map(d=>d.id);
+  despesas=despesas.filter(d=>!ids.includes(d.id));
+  despesas.push(...f);
   const tot=f.reduce((s,d)=>s+parseFloat(d.valor),0);
-  el.innerHTML='<div class="tbl-wrap"><table class="dt"><thead><tr><th>Data</th><th>Descrição</th><th>Cat.</th><th>Tipo</th><th>Valor</th><th>Status</th><th>Obs</th><th>Ações</th></tr></thead><tbody>'+
-  f.map(d=>'<tr id="drow-'+d.id+'"><td>'+fmtD(d.data)+'</td><td>'+d.descricao+'</td><td>'+tl(d.categoria)+'</td><td><span class="badge b-'+d.tipo+'">'+(d.tipo==='fixa'?'Fixa':'Pontual')+'</span></td><td>'+fmtBRL(d.valor)+'</td><td><span class="badge b-'+(d.status==='pago'?'pago':'pendente')+'">'+(d.status==='pago'?'Pago':'A pagar')+'</span></td><td style="font-size:11px;color:#888">'+(d.obs||'')+'</td><td style="white-space:nowrap"><button class="be" onclick="editDesp(\''+d.id+'\')">✏</button> <button class="bd" onclick="delDesp(\''+d.id+'\')">✕</button></td></tr>').join('')+
-  '</tbody><tfoot><tr><td colspan="4" style="font-weight:600;padding:8px">Total</td><td style="font-weight:600;padding:8px">'+fmtBRL(tot)+'</td><td colspan="3"></td></tr></tfoot></table></div>';
+  const totPago=f.filter(d=>d.status==='pago').reduce((s,d)=>s+parseFloat(d.valor),0);
+  const totPend=f.filter(d=>d.status!=='pago').reduce((s,d)=>s+parseFloat(d.valor),0);
+  let rows='';
+  f.forEach(d=>{
+    rows+=`<tr id="drow-${d.id}">
+      <td>${fmtD(d.data)}</td>
+      <td>${d.descricao}</td>
+      <td>${tl(d.categoria)}</td>
+      <td><span class="badge b-${d.tipo}">${d.tipo==='fixa'?'Fixa':'Pontual'}</span></td>
+      <td>${fmtBRL(d.valor)}</td>
+      <td><span class="badge b-${d.status==='pago'?'pago':'pendente'}">${d.status==='pago'?'Pago':'A pagar'}</span></td>
+      <td style="font-size:11px;color:#888;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${d.obs||''}">${d.obs||''}</td>
+      <td style="white-space:nowrap">
+        <button class="be" onclick="editDesp('${d.id}')" title="Editar">✏</button>
+        <button class="bd" onclick="delDesp('${d.id}')" title="Excluir">✕</button>
+      </td>
+    </tr>`;
+  });
+  el.innerHTML=`
+    <div class="g3" style="margin-bottom:12px">
+      <div class="mc"><div class="mc-lbl">Total do mês</div><div class="mc-val amber">${fmtBRL(tot)}</div></div>
+      <div class="mc"><div class="mc-lbl">✅ Pago</div><div class="mc-val green">${fmtBRL(totPago)}</div></div>
+      <div class="mc"><div class="mc-lbl">⏳ A pagar</div><div class="mc-val red">${fmtBRL(totPend)}</div></div>
+    </div>
+    <div class="tbl-wrap"><table class="dt">
+      <thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Tipo</th><th>Valor</th><th>Status</th><th>Obs</th><th>Ações</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr style="background:#f8f8f8;font-weight:700">
+        <td colspan="4" style="padding:8px">Total de ${mes}</td>
+        <td style="padding:8px">${fmtBRL(tot)}</td>
+        <td colspan="3"></td>
+      </tr></tfoot>
+    </table></div>`;
 }
+
 function editDesp(id){
   const d=despesas.find(x=>x.id===id);if(!d)return;
   const row=document.getElementById('drow-'+id);if(!row)return;
-  row.innerHTML='<td><input type="date" value="'+d.data+'" id="ed-data-'+id+'" style="width:110px"></td>'+
-    '<td><input type="text" value="'+d.descricao+'" id="ed-desc-'+id+'"></td>'+
-    '<td><select id="ed-cat-'+id+'"><option value="contador"'+(d.categoria==='contador'?' selected':'')+'>Contador</option><option value="aluguel"'+(d.categoria==='aluguel'?' selected':'')+'>Aluguel</option><option value="utilities"'+(d.categoria==='utilities'?' selected':'')+'>Água/Luz</option><option value="marketing"'+(d.categoria==='marketing'?' selected':'')+'>Marketing</option><option value="pessoal"'+(d.categoria==='pessoal'?' selected':'')+'>Pessoal</option><option value="tecnologia"'+(d.categoria==='tecnologia'?' selected':'')+'>Tecnologia</option><option value="viagem"'+(d.categoria==='viagem'?' selected':'')+'>Viagem</option><option value="administrativo"'+(d.categoria==='administrativo'?' selected':'')+'>Administrativo</option><option value="outros"'+(d.categoria==='outros'?' selected':'')+'>Outros</option></select></td>'+
-    '<td><select id="ed-tipo-'+id+'"><option value="fixa"'+(d.tipo==='fixa'?' selected':'')+'>Fixa</option><option value="pontual"'+(d.tipo==='pontual'?' selected':'')+'>Pontual</option></select></td>'+
-    '<td><input type="number" value="'+d.valor+'" id="ed-val-'+id+'" step="0.01" style="width:90px"></td>'+
-    '<td><select id="ed-status-'+id+'"><option value="pago"'+(d.status==='pago'?' selected':'')+'>Pago</option><option value="pendente"'+(d.status==='pendente'?' selected':'')+'>A pagar</option></select></td>'+
-    '<td><input type="text" value="'+(d.obs||'')+'" id="ed-obs-'+id+'" style="width:90px"></td>'+
-    '<td style="white-space:nowrap"><button class="bg" onclick="salvarEditDesp(\''+id+'\')">✔</button> <button class="bs" style="font-size:11px;padding:3px 7px" onclick="renderDesp()">✕</button></td>';
+  const cats=['contador','aluguel','utilities','marketing','pessoal','tecnologia','viagem','administrativo','outros'];
+  row.innerHTML=`
+    <td><input type="date" value="${d.data}" id="ed-data-${id}" style="width:110px"></td>
+    <td><input type="text" value="${d.descricao}" id="ed-desc-${id}"></td>
+    <td><select id="ed-cat-${id}">${cats.map(c=>`<option value="${c}"${d.categoria===c?' selected':''}>${tl(c)}</option>`).join('')}</select></td>
+    <td><select id="ed-tipo-${id}">
+      <option value="fixa"${d.tipo==='fixa'?' selected':''}>Fixa</option>
+      <option value="pontual"${d.tipo==='pontual'?' selected':''}>Pontual</option>
+    </select></td>
+    <td><input type="number" value="${d.valor}" id="ed-val-${id}" step="0.01" style="width:90px"></td>
+    <td><select id="ed-status-${id}">
+      <option value="pago"${d.status==='pago'?' selected':''}>Pago</option>
+      <option value="pendente"${d.status==='pendente'?' selected':''}>A pagar</option>
+    </select></td>
+    <td><input type="text" value="${d.obs||''}" id="ed-obs-${id}" style="width:100px"></td>
+    <td style="white-space:nowrap">
+      <button class="bg" onclick="salvarEditDesp('${id}')">✔</button>
+      <button class="bs" style="font-size:11px;padding:3px 7px" onclick="renderDesp()">✕</button>
+    </td>`;
 }
+
 async function salvarEditDesp(id){
-  const data=document.getElementById('ed-data-'+id)?.value,descricao=document.getElementById('ed-desc-'+id)?.value.trim(),categoria=document.getElementById('ed-cat-'+id)?.value,tipo=document.getElementById('ed-tipo-'+id)?.value,valor=parseFloat(document.getElementById('ed-val-'+id)?.value)||0,status=document.getElementById('ed-status-'+id)?.value,obs=document.getElementById('ed-obs-'+id)?.value.trim()||null;
+  const data=document.getElementById('ed-data-'+id)?.value;
+  const descricao=document.getElementById('ed-desc-'+id)?.value.trim();
+  const categoria=document.getElementById('ed-cat-'+id)?.value;
+  const tipo=document.getElementById('ed-tipo-'+id)?.value;
+  const valor=parseFloat(document.getElementById('ed-val-'+id)?.value)||0;
+  const status=document.getElementById('ed-status-'+id)?.value;
+  const obs=document.getElementById('ed-obs-'+id)?.value.trim()||null;
   if(!descricao||!valor||!data){showAlert('dp-alert','Preencha todos os campos.','i');return;}
-  const dt=new Date(data+'T12:00:00');const mes=getMesStr(dt.getMonth(),dt.getFullYear());
+  const dt=new Date(data+'T12:00:00');
+  const mes=getMesStr(dt.getMonth(),dt.getFullYear());
   const{error}=await db.from('despesas').update({descricao,categoria,tipo,valor,data,mes,status,obs}).eq('id',id);
   if(error){showAlert('dp-alert','Erro: '+error.message,'e');return;}
-  const idx=despesas.findIndex(d=>d.id===id);if(idx>=0)despesas[idx]={...despesas[idx],descricao,categoria,tipo,valor,data,mes,status,obs};
-  showAlert('dp-alert','✅ Despesa atualizada!','s');populateMesFiltro();renderDesp();atualizaDash();
+  const idx=despesas.findIndex(d=>d.id===id);
+  if(idx>=0)despesas[idx]={...despesas[idx],descricao,categoria,tipo,valor,data,mes,status,obs};
+  showAlert('dp-alert','✅ Despesa atualizada!','s');
+  await renderDesp();atualizaDash();
 }
+
 async function delDesp(id){if(!confirm('Remover?'))return;await db.from('despesas').delete().eq('id',id);despesas=despesas.filter(d=>d.id!==id);populateMesFiltro();renderDesp();atualizaDash();}
 
 // Dashboard com navegação de mês
