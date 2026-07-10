@@ -214,6 +214,7 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
       <button class="tab active" onclick="setTipo('aereo',this)">✈️ Aéreo</button>
       <button class="tab" onclick="setTipo('hospedagem',this)">🏨 Hospedagem</button>
       <button class="tab" onclick="setTipo('transfer',this)">🚗 Transfer</button>
+      <button class="tab" onclick="setTipo('seguro',this)">🛡️ Seguro Viagem</button>
     </div>
     <div id="form-aereo">
       <div class="ct" style="margin-bottom:8px">🧳 Passageiros <button class="bs" style="font-size:11px;margin-left:8px" onclick="addPaxBlock()" id="btn-add-pax">+ Adicionar passageiro</button></div>
@@ -239,10 +240,11 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
         <div class="field"><label>Check-out</label><input type="date" id="ho-out"></div>
         <div class="field"><label>Diárias</label><input type="number" id="ho-dias" value="1" min="1"></div>
       </div>
-      <div class="g2">
-        <div class="field"><label>Tipo de quarto</label><input type="text" id="ho-quarto"></div>
-        <div class="field"><label>Regime</label><select id="ho-regime"><option>Café da manhã</option><option>Meia pensão</option><option>All inclusive</option></select></div>
+      <!-- QUARTOS DINÂMICOS -->
+      <div class="ct" style="margin-bottom:8px">🛏️ Quartos
+        <button class="bs" style="font-size:11px;margin-left:8px" onclick="addQuartoBlock()" id="btn-add-quarto">+ Adicionar quarto</button>
       </div>
+      <div id="quarto-blocks"></div>
     </div>
     <div id="form-transfer" style="display:none">
       <div class="info-box">🧳 Digite o nome para buscar no banco.</div>
@@ -259,6 +261,29 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
       <div class="g2">
         <div class="field"><label>Origem</label><input type="text" id="tr-orig"></div>
         <div class="field"><label>Destino</label><input type="text" id="tr-dest"></div>
+      </div>
+    </div>
+    <!-- SEGURO VIAGEM -->
+    <div id="form-seguro" style="display:none">
+      <div class="info-box">🛡️ Preencha os dados do seguro viagem. O passageiro pode ser buscado no banco.</div>
+      <div class="ct" style="margin-bottom:8px">🧳 Segurado(s)
+        <button class="bs" style="font-size:11px;margin-left:8px" onclick="addPaxBlock()" id="btn-add-pax-seg">+ Adicionar segurado</button>
+      </div>
+      <div id="pax-blocks-seg"></div>
+      <div class="sep"></div>
+      <div class="g3" style="margin-bottom:10px">
+        <div class="field"><label>Seguradora *</label><input type="text" id="sg-seguradora" placeholder="Ex: Assist Card, Allianz..."></div>
+        <div class="field"><label>Plano / Cobertura</label><input type="text" id="sg-plano" placeholder="Ex: Mundial Plus, Essencial..."></div>
+        <div class="field"><label>Nº da apólice</label><input type="text" id="sg-apolice" placeholder="Ex: AC-123456"></div>
+      </div>
+      <div class="g3" style="margin-bottom:10px">
+        <div class="field"><label>Destino(s)</label><input type="text" id="sg-destino" placeholder="Ex: Europa, EUA, Mundial..."></div>
+        <div class="field"><label>Data de início</label><input type="date" id="sg-inicio"></div>
+        <div class="field"><label>Data de fim</label><input type="date" id="sg-fim"></div>
+      </div>
+      <div class="g2">
+        <div class="field"><label>Observações</label><input type="text" id="sg-obs" placeholder="Informações adicionais..."></div>
+        <div class="field"><label>Solicitante</label><div class="ac-wrap"><input type="text" id="sg-solic" autocomplete="off" oninput="solicSearch(this,'ac-sg-solic')"><div class="ac-list" id="ac-sg-solic" style="display:none"></div></div></div>
       </div>
     </div>
   </div>
@@ -522,14 +547,20 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
   <div id="rel-tab-vendas">
     <div class="card">
       <div class="ct">🔍 Filtros</div>
-      <div class="g3">
+      <div class="g3" style="margin-bottom:10px">
         <div class="field"><label>Cliente</label><select id="r-cli"><option value="">Todos</option></select></div>
-        <div class="field"><label>Tipo</label><select id="r-tipo"><option value="">Todos</option><option value="aereo">Aéreo</option><option value="hospedagem">Hospedagem</option><option value="transfer">Transfer</option></select></div>
+        <div class="field"><label>Tipo</label><select id="r-tipo"><option value="">Todos</option><option value="aereo">Aéreo</option><option value="hospedagem">Hospedagem</option><option value="transfer">Transfer</option><option value="seguro">Seguro Viagem</option></select></div>
         <div class="field"><label>Status</label><select id="r-status"><option value="">Todos</option><option value="pago">Pago</option><option value="pendente">Pendente</option><option value="parcial">Parcial</option></select></div>
+      </div>
+      <div class="g2" style="margin-bottom:10px">
+        <div class="field"><label>Solicitante</label><input type="text" id="r-solic" placeholder="Filtrar por solicitante..."></div>
+        <div class="field"><label>Período (mês)</label><input type="month" id="r-mes" style="padding:7px 10px;border:1px solid #ccc;border-radius:8px;font-size:13px"></div>
       </div>
       <div class="br">
         <button class="bp" onclick="gerarRelatorio()">📊 Gerar</button>
+        <button class="bs" onclick="gerarRelPorSolicitante()">👤 Por solicitante</button>
         <button class="bs" onclick="exportarCSV()">⬇ CSV</button>
+        <button class="bs" onclick="exportarXLS()" style="background:#EAF3DE;border-color:#1D9E75;color:#27500A">📊 Excel</button>
       </div>
     </div>
     <div id="rel-res"></div>
@@ -748,7 +779,7 @@ function getMesAtualStr(){const n=new Date();return getMesStr(n.getMonth(),n.get
 function fmtD(d){if(!d)return'';const p=d.split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d;}
 function gv(id){return document.getElementById(id)?.value.trim()||'';}
 function sv(id,val){const el=document.getElementById(id);if(el)el.value=val||'';}
-function tl(t){return{aereo:'Aéreo',hospedagem:'Hospedagem',transfer:'Transfer',todos:'Todos',contador:'Contador',aluguel:'Aluguel',utilities:'Água/Luz/Internet',marketing:'Marketing',pessoal:'Pessoal',tecnologia:'Tecnologia',viagem:'Viagem',administrativo:'Administrativo',outros:'Outros'}[t]||t;}
+function tl(t){return{aereo:'Aéreo',hospedagem:'Hospedagem',transfer:'Transfer',seguro:'Seguro Viagem',todos:'Todos',contador:'Contador',aluguel:'Aluguel',utilities:'Água/Luz/Internet',marketing:'Marketing',pessoal:'Pessoal',tecnologia:'Tecnologia',viagem:'Viagem',administrativo:'Administrativo',outros:'Outros'}[t]||t;}
 function showAlert(id,msg,type){const el=document.getElementById(id);if(!el)return;el.innerHTML=`<div class="alert alert-${type}">${msg}</div>`;setTimeout(()=>el.innerHTML='',4500);}
 
 // NAV
@@ -834,7 +865,7 @@ function selPax(iid,lid,paxId){
 // Blocos PAX
 function initPaxBlocks(){paxCount=0;document.getElementById('pax-blocks').innerHTML='';addPaxBlock();}
 function addPaxBlock(){
-  if(paxCount>=5){showAlert('v-alert','Máximo 5 passageiros.','i');return;}
+  if(paxCount>=9){showAlert('v-alert','Máximo 9 passageiros.','i');return;}
   paxCount++;const n=paxCount;const lid='ac-pax-'+n;
   const div=document.createElement('div');div.className='pax-block';div.id='pb-'+n;
   div.innerHTML='<div class="pax-block-title"><span>Passageiro '+n+'</span>'+(n>1?'<button class="bd" style="font-size:10px" onclick="remPaxBlock('+n+')">✕</button>':'')+'</div>'+
@@ -848,7 +879,7 @@ function addPaxBlock(){
     '<div class="field"><label>E-mail</label><input type="email" id="pemail-'+n+'"></div></div>'+
     '<div class="br" style="margin-top:8px"><button class="bs" style="font-size:11px" onclick="salvarPaxDaVenda('+n+')">💾 Salvar passageiro no banco</button><span id="pfb-'+n+'" style="font-size:11px;color:#1D9E75;margin-left:8px"></span></div>';
   document.getElementById('pax-blocks').appendChild(div);
-  if(paxCount>=5)document.getElementById('btn-add-pax').style.display='none';
+  if(paxCount>=9)document.getElementById('btn-add-pax').style.display='none';
 }
 function remPaxBlock(n){const el=document.getElementById('pb-'+n);if(el)el.remove();paxCount--;document.getElementById('btn-add-pax').style.display='';}
 async function salvarPaxDaVenda(n){
@@ -904,7 +935,7 @@ function atualizaVooValores(){
 }
 function somarCustos(){let t=0;for(let i=1;i<=vooCount;i++){const el=document.getElementById('vcusto-'+i);if(el)t+=parseFloat(el.value)||0;}if(t>0){sv('v-custo',t.toFixed(2));calcLucro();}}
 
-function coletarPax(){const list=[];for(let i=1;i<=5;i++){const nome=document.getElementById('pnome-'+i)?.value.trim();if(!nome)continue;list.push({nome,doc:document.getElementById('pdoc-'+i)?.value.trim()||'',nasc:document.getElementById('pnasc-'+i)?.value||'',nac:document.getElementById('pnac-'+i)?.value.trim()||'',tel:document.getElementById('ptel-'+i)?.value.trim()||'',email:document.getElementById('pemail-'+i)?.value.trim()||''});}return list;}
+function coletarPax(){const list=[];for(let i=1;i<=9;i++){const nome=document.getElementById('pnome-'+i)?.value.trim();if(!nome)continue;list.push({nome,doc:document.getElementById('pdoc-'+i)?.value.trim()||'',nasc:document.getElementById('pnasc-'+i)?.value||'',nac:document.getElementById('pnac-'+i)?.value.trim()||'',tel:document.getElementById('ptel-'+i)?.value.trim()||'',email:document.getElementById('pemail-'+i)?.value.trim()||''});}return list;}
 function coletarVoos(){const list=[];for(let i=1;i<=3;i++){const cia=document.getElementById('vcia-'+i)?.value.trim();const orig=document.getElementById('vorig-'+i)?.value.trim();if(!cia&&!orig)continue;list.push({cia:cia||'',num:document.getElementById('vnum-'+i)?.value.trim()||'',classe:document.getElementById('vclasse-'+i)?.value||'',orig:orig||'',dest:document.getElementById('vdest-'+i)?.value.trim()||'',bag:document.getElementById('vbag-'+i)?.value||'',ida:document.getElementById('vida-'+i)?.value||'',chg:document.getElementById('vchg-'+i)?.value||'',pnr:document.getElementById('vpnr-'+i)?.value.trim()||'',bilhete:document.getElementById('vbil-'+i)?.value.trim()||'',solic:document.getElementById('vsolic-'+i)?.value.trim()||'',custo:parseFloat(document.getElementById('vcusto-'+i)?.value)||0});}return list;}
 
 // Numeração
@@ -912,7 +943,8 @@ function gerarNumVenda(){const n=vendas.length+1;sv('v-ref','VD'+String(n).padSt
 async function proximoNumFatura(){const{data}=await db.from('faturas').select('ref').order('created_at',{ascending:false}).limit(1);if(!data||!data[0])return'FT0000001';const last=parseInt(data[0].ref.replace('FT',''))||0;return'FT'+String(last+1).padStart(7,'0');}
 
 // Parcelamento
-function setTipo(t,btn){tipoAtual=t;['aereo','hospedagem','transfer'].forEach(x=>document.getElementById('form-'+x).style.display=x===t?'block':'none');document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');atualizaVooValores();}
+function setTipo(t,btn){tipoAtual=t;['aereo','hospedagem','transfer','seguro'].forEach(x=>document.getElementById('form-'+x).style.display=x===t?'block':'none');
+  if(t==='hospedagem') setTimeout(initQuartoBlocks,0);document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');atualizaVooValores();}
 function setParc(modo){modoParc=modo;document.getElementById('tog-av').classList.toggle('active',modo==='avista');document.getElementById('tog-pa').classList.toggle('active',modo==='parcelado');const area=document.getElementById('parc-area');if(modo==='parcelado'){area.style.display='block';numParc=2;buildParcGrid();}else{area.style.display='none';numParc=1;}atualizaResumoPgto();}
 function buildParcGrid(){const grid=document.getElementById('parc-grid');if(!grid)return;grid.innerHTML='';const venda=parseFloat(document.getElementById('v-venda').value)||0;for(let i=2;i<=10;i++){const btn=document.createElement('button');btn.className='parcela-btn'+(i===numParc?' selected':'');btn.innerHTML='<div style="font-weight:600">'+i+'x</div>'+(venda?'<div style="font-size:10px;opacity:.8">'+fmtBRL(venda/i)+'</div>':'');btn.onclick=()=>{numParc=i;buildParcGrid();atualizaResumoPgto();};grid.appendChild(btn);}}
 function onPgtoChange(){const pgto=gv('v-pgto');if(['PIX','Transferência bancária','Cartão de débito'].includes(pgto)){setParc('avista');document.getElementById('tog-pa').disabled=true;document.getElementById('tog-pa').style.opacity='.4';}else{document.getElementById('tog-pa').disabled=false;document.getElementById('tog-pa').style.opacity='1';}atualizaResumoPgto();}
@@ -932,7 +964,12 @@ async function salvarVenda(){
     vooList.forEach(vo=>{if(vo.orig)salvarAeroportoCustom(vo.orig);if(vo.dest)salvarAeroportoCustom(vo.dest);if(vo.solic)salvarSolicitante(vo.solic);});
     for(const p of paxList){if(p.nome&&!passageiros.find(x=>x.nome.toLowerCase()===p.nome.toLowerCase())){const{data:pd}=await db.from('passageiros').insert([{nome:p.nome,doc:p.doc||null,nasc:p.nasc||null,nac:p.nac||null,tel:p.tel||null,email:p.email||null}]).select();if(pd)passageiros.push(pd[0]);}}
   }else if(tipoAtual==='hospedagem'){
-    det={hosp:gv('ho-hosp'),doc:gv('ho-doc'),num:gv('ho-num'),hotel:gv('ho-hotel'),end:gv('ho-end'),cat:gv('ho-cat'),chkin:gv('ho-in'),chkout:gv('ho-out'),quarto:gv('ho-quarto'),regime:gv('ho-regime'),dias:gv('ho-dias')};
+    const quartos=coletarQuartos();
+    det={hosp:gv('ho-hosp'),doc:gv('ho-doc'),num:gv('ho-num'),hotel:gv('ho-hotel'),end:gv('ho-end'),cat:gv('ho-cat'),chkin:gv('ho-in'),chkout:gv('ho-out'),dias:gv('ho-dias'),quartos};
+  }else if(tipoAtual==='seguro'){
+    det=coletarSeguro();
+    if(det.solic) salvarSolicitante(det.solic);
+    for(const p of det.passageiros){if(p.nome&&!passageiros.find(x=>x.nome.toLowerCase()===p.nome.toLowerCase())){const{data:pd}=await db.from('passageiros').insert([{nome:p.nome,doc:p.doc||null,nasc:p.nasc||null,nac:p.nac||null,tel:p.tel||null,email:p.email||null}]).select();if(pd)passageiros.push(pd[0]);}}
   }else{
     det={pax:gv('tr-pax'),tel:gv('tr-tel'),num:gv('tr-num'),tipo:gv('tr-tipo'),veiculo:gv('tr-veiculo'),orig:gv('tr-orig'),dest:gv('tr-dest'),data:gv('tr-data')};
   }
@@ -962,7 +999,7 @@ async function salvarVenda(){
   }
 }
 
-function limparVenda(){['v-custo','v-fee','v-margem','v-venda','ho-hosp','ho-doc','ho-hotel','ho-end','ho-in','ho-out','ho-quarto','tr-pax','tr-tel','tr-orig','tr-dest','v-obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('c-base').textContent='R$ 0,00';document.getElementById('c-imp').textContent='- R$ 0,00';document.getElementById('c-luc').textContent='R$ 0,00';sv('v-cli','');setParc('avista');sv('v-pgto','PIX');onPgtoChange();initPaxBlocks();initVooBlocks();atualizaVooValores();gerarNumVenda();
+function limparVenda(){['v-custo','v-fee','v-margem','v-venda','ho-hosp','ho-doc','ho-hotel','ho-end','ho-in','ho-out','ho-quarto','tr-pax','tr-tel','tr-orig','tr-dest','v-obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('c-base').textContent='R$ 0,00';document.getElementById('c-imp').textContent='- R$ 0,00';document.getElementById('c-luc').textContent='R$ 0,00';sv('v-cli','');setParc('avista');sv('v-pgto','PIX');onPgtoChange();initPaxBlocks();initVooBlocks();atualizaVooValores();initQuartoBlocks();gerarNumVenda();
   sv('v-forn-cartao-txt','');sv('v-forn-cartao-id','');sv('v-forn-parc-val','');
   const fb=document.getElementById('v-forn-fatura-box');if(fb)fb.style.display='none';
   const fp=document.getElementById('v-forn-parcelas');if(fp)fp.value='1';
@@ -1146,12 +1183,30 @@ async function delDesp(id){if(!confirm('Remover?'))return;await db.from('despesa
 // Dashboard com navegação de mês
 function mudaMes(delta){dashMes+=delta;if(dashMes>11){dashMes=0;dashAno++;}if(dashMes<0){dashMes=11;dashAno--;}atualizaDash();}
 function irMesAtual(){const n=new Date();dashMes=n.getMonth();dashAno=n.getFullYear();atualizaDash();}
+function calcBaseRealMes(mesKey){
+  // Distribui fee+margem pelas parcelas (regime de caixa)
+  let baseReal=0;
+  vendas.forEach(v=>{
+    const dist=distribuirParcelas(v,'base');
+    dist.forEach(p=>{ if(p.mesKey===mesKey) baseReal+=p.valor; });
+  });
+  return baseReal;
+}
+
 function atualizaDash(){
   const mes=getMesStr(dashMes,dashAno);const aliq=parseFloat(cfg.aliq||6)/100;
   document.getElementById('dash-mes-label').textContent=MESES[dashMes]+' '+dashAno;
-  document.getElementById('dash-aliq-info').textContent='Simples '+(cfg.aliq||6)+'% sobre fee+margem';
+  document.getElementById('dash-aliq-info').textContent='Simples '+(cfg.aliq||6)+'% sobre fee+margem (regime de caixa)';
   const vm=vendas.filter(v=>v.mes===mes),dm=despesas.filter(d=>d.mes===mes);
-  const receita=vm.reduce((s,v)=>s+parseFloat(v.venda||0),0),base=vm.reduce((s,v)=>s+parseFloat(v.fee||0)+parseFloat(v.margem||0),0),imp=base*aliq,despTot=dm.reduce((s,d)=>s+parseFloat(d.valor||0),0),liq=base-imp-despTot,arec=vendas.filter(v=>v.status!=='pago').reduce((s,v)=>s+parseFloat(v.venda||0),0);
+  // Receita bruta: soma das parcelas que vencem neste mês (todas as vendas)
+  let receita=0;
+  vendas.forEach(v=>{
+    const dist=distribuirParcelas(v,'venda');
+    dist.forEach(p=>{ if(p.mesKey===mes) receita+=p.valor; });
+  });
+  // Base real: fee+margem das parcelas que vencem neste mês
+  const base=calcBaseRealMes(mes);
+  const imp=base*aliq,despTot=dm.reduce((s,d)=>s+parseFloat(d.valor||0),0),liq=base-imp-despTot,arec=vendas.filter(v=>v.status!=='pago').reduce((s,v)=>s+parseFloat(v.venda||0),0);
   document.getElementById('m-rec').textContent=fmtBRL(receita);document.getElementById('m-base').textContent=fmtBRL(base);document.getElementById('m-imp').textContent=fmtBRL(imp);document.getElementById('m-luc').textContent=fmtBRL(liq);document.getElementById('m-luc').className='mc-val '+(liq>=0?'green':'red');document.getElementById('m-desp').textContent=fmtBRL(despTot);document.getElementById('m-rec2').textContent=fmtBRL(arec);document.getElementById('m-marg').textContent=(base?liq/base*100:0).toFixed(1)+'%';document.getElementById('m-pax').textContent=passageiros.length;
   const dv=document.getElementById('dash-vd');
   if(!vm.length){dv.innerHTML='<div class="empty">Nenhuma venda neste período.</div>';}
@@ -1472,18 +1527,22 @@ function imprimirFatura(){if(!window._faturaHtml)return;document.getElementById(
 
 // Relatório
 async function gerarRelatorio(){
-  const cId=gv('r-cli'),tipo=gv('r-tipo'),status=gv('r-status');
+  const cId=gv('r-cli'),tipo=gv('r-tipo'),status=gv('r-status'),solic=gv('r-solic'),mesF=gv('r-mes');
   let q=db.from('vendas').select('*,clientes(nome,seq)').order('created_at',{ascending:false});
   if(cId)q=q.eq('cliente_id',cId);if(tipo)q=q.eq('tipo',tipo);if(status)q=q.eq('status',status);
-  const{data:f}=await q;if(!f?.length){document.getElementById('rel-res').innerHTML='<div class="card"><div class="empty">Nenhuma venda.</div></div>';return;}
+  if(mesF){const[y,m]=mesF.split('-');q=q.eq('mes',String(m).padStart(2,'0')+'/'+y);}
+  let{data:f}=await q;
+  // Filtro solicitante (client-side)
+  if(solic&&f){f=f.filter(v=>{const d=v.detalhes||{};const vs=d.voos?d.voos[0]?.solic||'':d.solic||'';return vs.toLowerCase().includes(solic.toLowerCase());});}if(!f?.length){document.getElementById('rel-res').innerHTML='<div class="card"><div class="empty">Nenhuma venda.</div></div>';return;}
   const aliq=parseFloat(cfg.aliq||6)/100,tot=f.reduce((s,v)=>s+parseFloat(v.venda||0),0),base=f.reduce((s,v)=>s+parseFloat(v.fee||0)+parseFloat(v.margem||0),0),imp=base*aliq,ll=base-imp;
   document.getElementById('rel-res').innerHTML='<div class="card"><div class="g4" style="margin-bottom:12px"><div class="mc"><div class="mc-lbl">Total</div><div class="mc-val blue">'+fmtBRL(tot)+'</div></div><div class="mc"><div class="mc-lbl">Fee+Margem</div><div class="mc-val amber">'+fmtBRL(base)+'</div></div><div class="mc"><div class="mc-lbl">Imposto</div><div class="mc-val red">'+fmtBRL(imp)+'</div></div><div class="mc"><div class="mc-lbl">Lucro líq.</div><div class="mc-val green">'+fmtBRL(ll)+'</div></div></div><div class="tbl-wrap"><table class="dt"><thead><tr><th>Venda</th><th>Data</th><th>Passageiro(s)</th><th>Cliente</th><th>Tipo</th><th>Rota</th><th>Fee+M</th><th>Venda</th><th>Lucro</th><th>Status</th></tr></thead><tbody>'+f.map(v=>{const d=v.detalhes||{};const pax=d.passageiros?d.passageiros.map(p=>p.nome).join(', '):(d.pax||d.hosp||'-');const rota=d.voos?d.voos.map(vo=>vo.orig+'→'+vo.dest).join(' / '):(d.hotel||d.tipo||'-');const b=parseFloat(v.fee||0)+parseFloat(v.margem||0);const i=b*aliq;return'<tr class="clickable" onclick="abrirVenda(\''+v.id+'\')"><td style="font-weight:700;color:#185FA5">'+v.ref+'</td><td>'+new Date(v.created_at).toLocaleDateString('pt-BR')+'</td><td style="font-size:11px">'+pax+'</td><td>'+(v.clientes?.nome||'-')+'</td><td><span class="badge b-'+v.tipo+'">'+tl(v.tipo)+'</span></td><td style="font-size:11px">'+rota+'</td><td>'+fmtBRL(b)+'</td><td>'+fmtBRL(v.venda)+'</td><td style="color:#1D9E75;font-weight:600">'+fmtBRL(b-i)+'</td><td><span class="badge b-'+v.status+'">'+v.status+'</span></td></tr>';}).join('')+'</tbody></table></div></div>';
 }
 async function exportarCSV(){
   let q=db.from('vendas').select('*,clientes(nome)').order('created_at',{ascending:false});
-  const cId=gv('r-cli'),tipo=gv('r-tipo'),status=gv('r-status');
+  const cId=gv('r-cli'),tipo=gv('r-tipo'),status=gv('r-status'),solic=gv('r-solic'),mesF=gv('r-mes');
   if(cId)q=q.eq('cliente_id',cId);if(tipo)q=q.eq('tipo',tipo);if(status)q=q.eq('status',status);
-  const{data:f}=await q;if(!f?.length){alert('Nenhuma venda.');return;}
+  if(mesF){const[y,m]=mesF.split('-');q=q.eq('mes',String(m).padStart(2,'0')+'/'+y);}
+  let{data:f}=await q;if(solic&&f)f=f.filter(v=>{const d=v.detalhes||{};const vs=d.voos?d.voos[0]?.solic||'':d.solic||'';return vs.toLowerCase().includes(solic.toLowerCase());});if(!f?.length){alert('Nenhuma venda.');return;}
   const aliq=parseFloat(cfg.aliq||6)/100;
   const rows=f.map(v=>{const d=v.detalhes||{};const pax=d.passageiros?d.passageiros.map(p=>p.nome).join(' / '):(d.pax||d.hosp||'');const rota=d.voos?d.voos.map(vo=>vo.orig+'→'+vo.dest).join(' / '):(d.hotel||'');const b=parseFloat(v.fee||0)+parseFloat(v.margem||0);const i=b*aliq;return[new Date(v.created_at).toLocaleDateString('pt-BR'),v.ref,pax,v.clientes?.nome||'',tl(v.tipo),rota,v.custo,v.fee||0,v.margem||0,b.toFixed(2),v.venda,v.pgto,v.status,i.toFixed(2),(b-i).toFixed(2)].join(',');});
   const blob=new Blob(['\uFEFF'+'Data,Venda,Passageiro(s),Cliente,Tipo,Rota,Custo,Fee,Margem,Fee+M,Venda,Pagto,Status,Imposto,LucroLiq\n'+rows.join('\n')],{type:'text/csv;charset=utf-8;'});
