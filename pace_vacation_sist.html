@@ -64,7 +64,7 @@ table.dt input,table.dt select{padding:4px 8px;border:1px solid #ddd;border-radi
 .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600}
 .b-aereo{background:#E6F1FB;color:#0C447C}.b-hospedagem{background:#EAF3DE;color:#27500A}.b-transfer{background:#FAEEDA;color:#633806}
 .b-pago{background:#EAF3DE;color:#27500A}.b-pendente{background:#FAEEDA;color:#633806}.b-parcial{background:#FBEAF0;color:#72243E}
-.b-fixa{background:#EEEDFE;color:#3C3489}.b-pontual{background:#FAEEDA;color:#633806}
+.b-fixa{background:#EEEDFE;color:#3C3489}.b-pontual{background:#FAEEDA;color:#633806}.b-seguro{background:#E8F8F0;color:#1D6B4A}.b-locacao{background:#FEF0E8;color:#7A3010}
 .sep{height:1px;background:#eee;margin:12px 0}
 .empty{text-align:center;padding:28px;color:#aaa;font-size:13px}
 .alert{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:10px}
@@ -215,6 +215,7 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
       <button class="tab" onclick="setTipo('hospedagem',this)">🏨 Hospedagem</button>
       <button class="tab" onclick="setTipo('transfer',this)">🚗 Transfer</button>
       <button class="tab" onclick="setTipo('seguro',this)">🛡️ Seguro Viagem</button>
+      <button class="tab" onclick="setTipo('locacao',this)">🚗 Locação de Veículos</button>
     </div>
     <div id="form-aereo">
       <div class="ct" style="margin-bottom:8px">🧳 Passageiros <button class="bs" style="font-size:11px;margin-left:8px" onclick="addPaxBlock()" id="btn-add-pax">+ Adicionar passageiro</button></div>
@@ -261,6 +262,35 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
       <div class="g2">
         <div class="field"><label>Origem</label><input type="text" id="tr-orig"></div>
         <div class="field"><label>Destino</label><input type="text" id="tr-dest"></div>
+      </div>
+    </div>
+    <!-- LOCAÇÃO DE VEÍCULOS -->
+    <div id="form-locacao" style="display:none">
+      <div class="info-box">🚗 Preencha os dados da locação de veículos.</div>
+      <div class="ct" style="margin-bottom:8px">🧳 Locatário(s)
+        <button class="bs" style="font-size:11px;margin-left:8px" onclick="addPaxBlock()" id="btn-add-pax-loc">+ Adicionar locatário</button>
+      </div>
+      <div id="pax-blocks-loc-ref" style="display:none"></div>
+      <div class="sep"></div>
+      <div class="g3" style="margin-bottom:10px">
+        <div class="field"><label>Locadora *</label><input type="text" id="lc-locadora" placeholder="Ex: Localiza, Movida, Hertz..."></div>
+        <div class="field"><label>Categoria do veículo</label><input type="text" id="lc-categoria" placeholder="Ex: Econômico, SUV, Executivo..."></div>
+        <div class="field"><label>Modelo (opcional)</label><input type="text" id="lc-modelo" placeholder="Ex: HB20, Corolla..."></div>
+      </div>
+      <div class="g3" style="margin-bottom:10px">
+        <div class="field"><label>Retirada — Local</label><input type="text" id="lc-orig" placeholder="Ex: Aeroporto GRU, Centro SP..."></div>
+        <div class="field"><label>Devolução — Local</label><input type="text" id="lc-dest" placeholder="Ex: Aeroporto GIG..."></div>
+        <div class="field"><label>Nº reserva / voucher</label><input type="text" id="lc-reserva"></div>
+      </div>
+      <div class="g3" style="margin-bottom:10px">
+        <div class="field"><label>Data/hora retirada</label><input type="datetime-local" id="lc-retirada"></div>
+        <div class="field"><label>Data/hora devolução</label><input type="datetime-local" id="lc-devolucao"></div>
+        <div class="field"><label>Dias de locação</label><input type="number" id="lc-dias" value="1" min="1"></div>
+      </div>
+      <div class="g3">
+        <div class="field"><label>Cobertura / Seguro</label><select id="lc-cobertura"><option>Básica</option><option>Intermediária</option><option>Total (Full)</option><option>Sem cobertura</option></select></div>
+        <div class="field"><label>Solicitante</label><div class="ac-wrap"><input type="text" id="lc-solic" autocomplete="off" oninput="solicSearch(this,'ac-lc-solic')"><div class="ac-list" id="ac-lc-solic" style="display:none"></div></div></div>
+        <div class="field"><label>Observações</label><input type="text" id="lc-obs"></div>
       </div>
     </div>
     <!-- SEGURO VIAGEM -->
@@ -549,7 +579,7 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
       <div class="ct">🔍 Filtros</div>
       <div class="g3" style="margin-bottom:10px">
         <div class="field"><label>Cliente</label><select id="r-cli"><option value="">Todos</option></select></div>
-        <div class="field"><label>Tipo</label><select id="r-tipo"><option value="">Todos</option><option value="aereo">Aéreo</option><option value="hospedagem">Hospedagem</option><option value="transfer">Transfer</option><option value="seguro">Seguro Viagem</option></select></div>
+        <div class="field"><label>Tipo</label><select id="r-tipo"><option value="">Todos</option><option value="aereo">Aéreo</option><option value="hospedagem">Hospedagem</option><option value="transfer">Transfer</option><option value="seguro">Seguro Viagem</option><option value="locacao">Locação de Veículos</option></select></div>
         <div class="field"><label>Status</label><select id="r-status"><option value="">Todos</option><option value="pago">Pago</option><option value="pendente">Pendente</option><option value="parcial">Parcial</option></select></div>
       </div>
       <div class="g2" style="margin-bottom:10px">
@@ -779,7 +809,7 @@ function getMesAtualStr(){const n=new Date();return getMesStr(n.getMonth(),n.get
 function fmtD(d){if(!d)return'';const p=d.split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d;}
 function gv(id){return document.getElementById(id)?.value.trim()||'';}
 function sv(id,val){const el=document.getElementById(id);if(el)el.value=val||'';}
-function tl(t){return{aereo:'Aéreo',hospedagem:'Hospedagem',transfer:'Transfer',seguro:'Seguro Viagem',todos:'Todos',contador:'Contador',aluguel:'Aluguel',utilities:'Água/Luz/Internet',marketing:'Marketing',pessoal:'Pessoal',tecnologia:'Tecnologia',viagem:'Viagem',administrativo:'Administrativo',outros:'Outros'}[t]||t;}
+function tl(t){return{aereo:'Aéreo',hospedagem:'Hospedagem',transfer:'Transfer',seguro:'Seguro Viagem',locacao:'Locação de Veículos',todos:'Todos',contador:'Contador',aluguel:'Aluguel',utilities:'Água/Luz/Internet',marketing:'Marketing',pessoal:'Pessoal',tecnologia:'Tecnologia',viagem:'Viagem',administrativo:'Administrativo',outros:'Outros'}[t]||t;}
 function showAlert(id,msg,type){const el=document.getElementById(id);if(!el)return;el.innerHTML=`<div class="alert alert-${type}">${msg}</div>`;setTimeout(()=>el.innerHTML='',4500);}
 
 // NAV
@@ -943,7 +973,7 @@ function gerarNumVenda(){const n=vendas.length+1;sv('v-ref','VD'+String(n).padSt
 async function proximoNumFatura(){const{data}=await db.from('faturas').select('ref').order('created_at',{ascending:false}).limit(1);if(!data||!data[0])return'FT0000001';const last=parseInt(data[0].ref.replace('FT',''))||0;return'FT'+String(last+1).padStart(7,'0');}
 
 // Parcelamento
-function setTipo(t,btn){tipoAtual=t;['aereo','hospedagem','transfer','seguro'].forEach(x=>document.getElementById('form-'+x).style.display=x===t?'block':'none');
+function setTipo(t,btn){tipoAtual=t;['aereo','hospedagem','transfer','seguro','locacao'].forEach(x=>document.getElementById('form-'+x).style.display=x===t?'block':'none');
   if(t==='hospedagem') setTimeout(initQuartoBlocks,0);document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');atualizaVooValores();}
 function setParc(modo){modoParc=modo;document.getElementById('tog-av').classList.toggle('active',modo==='avista');document.getElementById('tog-pa').classList.toggle('active',modo==='parcelado');const area=document.getElementById('parc-area');if(modo==='parcelado'){area.style.display='block';numParc=2;buildParcGrid();}else{area.style.display='none';numParc=1;}atualizaResumoPgto();}
 function buildParcGrid(){const grid=document.getElementById('parc-grid');if(!grid)return;grid.innerHTML='';const venda=parseFloat(document.getElementById('v-venda').value)||0;for(let i=2;i<=10;i++){const btn=document.createElement('button');btn.className='parcela-btn'+(i===numParc?' selected':'');btn.innerHTML='<div style="font-weight:600">'+i+'x</div>'+(venda?'<div style="font-size:10px;opacity:.8">'+fmtBRL(venda/i)+'</div>':'');btn.onclick=()=>{numParc=i;buildParcGrid();atualizaResumoPgto();};grid.appendChild(btn);}}
@@ -969,6 +999,9 @@ async function salvarVenda(){
   }else if(tipoAtual==='seguro'){
     det=coletarSeguro();
     if(det.solic) salvarSolicitante(det.solic);
+    for(const p of det.passageiros){if(p.nome&&!passageiros.find(x=>x.nome.toLowerCase()===p.nome.toLowerCase())){const{data:pd}=await db.from('passageiros').insert([{nome:p.nome,doc:p.doc||null,nasc:p.nasc||null,nac:p.nac||null,tel:p.tel||null,email:p.email||null}]).select();if(pd)passageiros.push(pd[0]);}}
+  }else if(tipoAtual==='locacao'){
+    det=coletarLocacao();
     for(const p of det.passageiros){if(p.nome&&!passageiros.find(x=>x.nome.toLowerCase()===p.nome.toLowerCase())){const{data:pd}=await db.from('passageiros').insert([{nome:p.nome,doc:p.doc||null,nasc:p.nasc||null,nac:p.nac||null,tel:p.tel||null,email:p.email||null}]).select();if(pd)passageiros.push(pd[0]);}}
   }else{
     det={pax:gv('tr-pax'),tel:gv('tr-tel'),num:gv('tr-num'),tipo:gv('tr-tipo'),veiculo:gv('tr-veiculo'),orig:gv('tr-orig'),dest:gv('tr-dest'),data:gv('tr-data')};
@@ -1005,7 +1038,10 @@ function limparVenda(){['v-custo','v-fee','v-margem','v-venda','ho-hosp','ho-doc
   const fp=document.getElementById('v-forn-parcelas');if(fp)fp.value='1';
   window._editandoVendaId=null;
   document.getElementById('v-ref').style.color='#185FA5';
-  limparDesconto();}
+  limparDesconto();
+  // Limpar campos locação e seguro
+  ['lc-locadora','lc-categoria','lc-modelo','lc-orig','lc-dest','lc-reserva','lc-retirada','lc-devolucao','lc-obs','lc-solic',
+   'sg-seguradora','sg-plano','sg-apolice','sg-destino','sg-inicio','sg-fim','sg-obs','sg-solic'].forEach(id=>sv(id,''));}
 
 // Passageiros
 async function salvarPax(){const nome=gv('px-nome'),doc=gv('px-doc');if(!nome||!doc){showAlert('px-alert','Preencha nome e documento.','i');return;}if(passageiros.find(p=>p.nome.toLowerCase()===nome.toLowerCase()&&p.doc===doc)){showAlert('px-alert','Já cadastrado.','i');return;}const{data,error}=await db.from('passageiros').insert([{nome,doc,nasc:gv('px-nasc')||null,nac:gv('px-nac')||null,tel:gv('px-tel')||null,email:gv('px-email')||null,passport:gv('px-pass')||null,passvalid:gv('px-passval')||null,vinculo:gv('px-vinc')||null,obs:gv('px-obs')||null}]).select();if(error){showAlert('px-alert','Erro: '+error.message,'e');return;}passageiros.push(data[0]);['px-nome','px-doc','px-nasc','px-nac','px-tel','px-email','px-pass','px-passval','px-vinc','px-obs'].forEach(id=>sv(id,''));showAlert('px-alert','Passageiro salvo!','s');renderPax();}
@@ -1197,7 +1233,7 @@ function atualizaDash(){
   const mes=getMesStr(dashMes,dashAno);const aliq=parseFloat(cfg.aliq||6)/100;
   document.getElementById('dash-mes-label').textContent=MESES[dashMes]+' '+dashAno;
   document.getElementById('dash-aliq-info').textContent='Simples '+(cfg.aliq||6)+'% sobre fee+margem (regime de caixa)';
-  const vm=vendas.filter(v=>v.mes===mes),dm=despesas.filter(d=>d.mes===mes);
+  const dm=despesas.filter(d=>d.mes===mes); // vendas: usa distribuirParcelas para todas
   // Receita bruta: soma das parcelas que vencem neste mês (todas as vendas)
   let receita=0;
   vendas.forEach(v=>{
@@ -2055,14 +2091,17 @@ function distribuirParcelas(venda, campo){
   let dataBase;
   if(venda.vencimento){
     dataBase = new Date(venda.vencimento+'T12:00:00');
-  } else {
+  } else if(venda.created_at){
     dataBase = new Date(venda.created_at);
+  } else {
+    dataBase = new Date();
   }
 
   const resultado=[];
   for(let i=0;i<parcelas;i++){
     const d = new Date(dataBase.getFullYear(), dataBase.getMonth()+i, dataBase.getDate());
-    const mesKey = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    // Formato MM/YYYY — igual ao usado em getMesStr e venda.mes
+    const mesKey = String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
     resultado.push({mesKey, valor: valorParcela});
   }
   return resultado;
