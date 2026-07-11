@@ -1230,26 +1230,94 @@ function calcBaseRealMes(mesKey){
 }
 
 function atualizaDash(){
-  const mes=getMesStr(dashMes,dashAno);const aliq=parseFloat(cfg.aliq||6)/100;
+  const mes=getMesStr(dashMes,dashAno);
+  const aliq=parseFloat(cfg.aliq||6)/100;
+
   document.getElementById('dash-mes-label').textContent=MESES[dashMes]+' '+dashAno;
-  document.getElementById('dash-aliq-info').textContent='Simples '+(cfg.aliq||6)+'% sobre fee+margem (regime de caixa)';
-  const dm=despesas.filter(d=>d.mes===mes); // vendas: usa distribuirParcelas para todas
-  // Receita bruta: soma das parcelas que vencem neste mês (todas as vendas)
-  let receita=0;
+  document.getElementById('dash-aliq-info').textContent='Simples '+(cfg.aliq||6)+'% sobre fee+margem';
+
+  // Vendas do mês (pelo campo mes da venda = mês em que foi cadastrada)
+  const vm=vendas.filter(v=>v.mes===mes);
+  // Despesas do mês
+  const dm=despesas.filter(d=>d.mes===mes);
+
+  // Receita bruta: distribui parcelas pelo vencimento
+  let receita=0, base=0;
   vendas.forEach(v=>{
-    const dist=distribuirParcelas(v,'venda');
-    dist.forEach(p=>{ if(p.mesKey===mes) receita+=p.valor; });
+    distribuirParcelas(v,'venda').forEach(p=>{ if(p.mesKey===mes) receita+=p.valor; });
+    distribuirParcelas(v,'base').forEach(p=>{ if(p.mesKey===mes) base+=p.valor; });
   });
-  // Base real: fee+margem das parcelas que vencem neste mês
-  const base=calcBaseRealMes(mes);
-  const imp=base*aliq,despTot=dm.reduce((s,d)=>s+parseFloat(d.valor||0),0),liq=base-imp-despTot,arec=vendas.filter(v=>v.status!=='pago').reduce((s,v)=>s+parseFloat(v.venda||0),0);
-  document.getElementById('m-rec').textContent=fmtBRL(receita);document.getElementById('m-base').textContent=fmtBRL(base);document.getElementById('m-imp').textContent=fmtBRL(imp);document.getElementById('m-luc').textContent=fmtBRL(liq);document.getElementById('m-luc').className='mc-val '+(liq>=0?'green':'red');document.getElementById('m-desp').textContent=fmtBRL(despTot);document.getElementById('m-rec2').textContent=fmtBRL(arec);document.getElementById('m-marg').textContent=(base?liq/base*100:0).toFixed(1)+'%';document.getElementById('m-pax').textContent=passageiros.length;
+
+  const imp=base*aliq;
+  const despTot=dm.reduce((s,d)=>s+parseFloat(d.valor||0),0);
+  const liq=base-imp-despTot;
+  const arec=vendas.filter(v=>v.status!=='pago').reduce((s,v)=>s+parseFloat(v.venda||0),0);
+
+  document.getElementById('m-rec').textContent=fmtBRL(receita);
+  document.getElementById('m-base').textContent=fmtBRL(base);
+  document.getElementById('m-imp').textContent=fmtBRL(imp);
+  document.getElementById('m-luc').textContent=fmtBRL(liq);
+  document.getElementById('m-luc').className='mc-val '+(liq>=0?'green':'red');
+  document.getElementById('m-desp').textContent=fmtBRL(despTot);
+  document.getElementById('m-rec2').textContent=fmtBRL(arec);
+  document.getElementById('m-marg').textContent=(base?liq/base*100:0).toFixed(1)+'%';
+  document.getElementById('m-pax').textContent=passageiros.length;
+
+  // Tabela de vendas do mês
   const dv=document.getElementById('dash-vd');
-  if(!vm.length){dv.innerHTML='<div class="empty">Nenhuma venda neste período.</div>';}
-  else{dv.innerHTML='<div class="tbl-wrap"><table class="dt"><thead><tr><th>Venda</th><th>Passageiro(s)</th><th>Cliente</th><th>Tipo</th><th>Rota</th><th>Valor</th><th>Status</th></tr></thead><tbody>'+vm.map(v=>{const d=v.detalhes||{};let pax='-',rota='-';if(d.passageiros&&d.passageiros.length)pax=d.passageiros.map(p=>p.nome).join(', ');else if(d.pax)pax=d.pax;else if(d.hosp)pax=d.hosp;if(d.voos&&d.voos.length)rota=d.voos.map(vo=>vo.orig+'→'+vo.dest).join(' / ');else if(d.hotel)rota=d.hotel;else if(d.tipo)rota=d.tipo;return'<tr class="clickable" onclick="abrirVenda(\''+v.id+'\')" title="Clique para ver/editar"><td style="font-weight:700;color:#185FA5">'+v.ref+'</td><td style="font-size:11px">'+pax+'</td><td>'+(v.clientes?.nome||'-')+'</td><td><span class="badge b-'+v.tipo+'">'+tl(v.tipo)+'</span></td><td style="font-size:11px">'+rota+'</td><td>'+fmtBRL(v.venda)+'</td><td><span class="badge b-'+v.status+'">'+v.status+'</span></td></tr>';}).join('')+'</tbody></table></div>';}
+  if(!vm.length){
+    dv.innerHTML='<div class="empty">Nenhuma venda em '+MESES[dashMes]+' '+dashAno+'.</div>';
+  } else {
+    let rows='';
+    vm.forEach(v=>{
+      const d=v.detalhes||{};
+      let pax='-', rota='-';
+      if(d.passageiros&&d.passageiros.length) pax=d.passageiros.map(p=>p.nome).join(', ');
+      else if(d.pax) pax=d.pax;
+      else if(d.hosp) pax=d.hosp;
+      if(d.voos&&d.voos.length) rota=d.voos.map(vo=>(vo.orig||'')+'→'+(vo.dest||'')).join(' / ');
+      else if(d.hotel) rota=d.hotel;
+      else if(d.locadora) rota=d.locadora+(d.modelo?' '+d.modelo:'');
+      else if(d.seguradora) rota=d.seguradora+(d.destino?' — '+d.destino:'');
+      else if(d.tipo) rota=d.tipo;
+      rows+=`<tr class="clickable" onclick="abrirVenda('${v.id}')" title="Clique para ver/editar">
+        <td style="font-weight:700;color:#185FA5">${v.ref}</td>
+        <td style="font-size:11px">${pax}</td>
+        <td>${v.clientes?.nome||'-'}</td>
+        <td><span class="badge b-${v.tipo}">${tl(v.tipo)}</span></td>
+        <td style="font-size:11px">${rota}</td>
+        <td>${fmtBRL(v.venda)}</td>
+        <td><span class="badge b-${v.status}">${v.status}</span></td>
+      </tr>`;
+    });
+    dv.innerHTML=`<div class="tbl-wrap"><table class="dt">
+      <thead><tr><th>Venda</th><th>Passageiro(s)</th><th>Cliente</th><th>Tipo</th><th>Rota</th><th>Valor</th><th>Status</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+  }
+
+  // Tabela de despesas do mês
   const dd=document.getElementById('dash-dp');
-  dd.innerHTML=dm.length?'<div class="tbl-wrap"><table class="dt"><thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Valor</th><th>Status</th></tr></thead><tbody>'+dm.map(d=>'<tr><td>'+fmtD(d.data)+'</td><td>'+d.descricao+'</td><td><span class="badge b-'+d.tipo+'">'+(d.tipo==='fixa'?'Fixa':'Pontual')+'</span></td><td>'+fmtBRL(d.valor)+'</td><td><span class="badge b-'+(d.status==='pago'?'pago':'pendente')+'">'+(d.status==='pago'?'Pago':'A pagar')+'</span></td></tr>').join('')+'</tbody></table></div>':'<div class="empty">Nenhuma despesa neste período.</div>';
+  if(!dm.length){
+    dd.innerHTML='<div class="empty">Nenhuma despesa em '+MESES[dashMes]+' '+dashAno+'.</div>';
+  } else {
+    let drows='';
+    dm.forEach(d=>{
+      drows+=`<tr>
+        <td>${fmtD(d.data)}</td>
+        <td>${d.descricao}</td>
+        <td><span class="badge b-${d.tipo}">${d.tipo==='fixa'?'Fixa':'Pontual'}</span></td>
+        <td>${fmtBRL(d.valor)}</td>
+        <td><span class="badge b-${d.status==='pago'?'pago':'pendente'}">${d.status==='pago'?'Pago':'A pagar'}</span></td>
+      </tr>`;
+    });
+    dd.innerHTML=`<div class="tbl-wrap"><table class="dt">
+      <thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Valor</th><th>Status</th></tr></thead>
+      <tbody>${drows}</tbody>
+    </table></div>`;
+  }
 }
+
 
 // Modal venda — ver, editar completo, excluir
 function abrirVenda(id){
