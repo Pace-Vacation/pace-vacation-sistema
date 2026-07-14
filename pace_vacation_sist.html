@@ -217,10 +217,13 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
       <button class="tab" onclick="setTipo('seguro',this)">🛡️ Seguro Viagem</button>
       <button class="tab" onclick="setTipo('locacao',this)">🚗 Locação de Veículos</button>
     </div>
-    <div id="form-aereo">
-      <div class="ct" style="margin-bottom:8px">🧳 Passageiros <button class="bs" style="font-size:11px;margin-left:8px" onclick="addPaxBlock()" id="btn-add-pax">+ Adicionar passageiro</button></div>
+    <!-- Passageiros compartilhados entre aéreo, seguro e locação -->
+    <div id="shared-pax-area" style="display:none">
+      <div class="ct" style="margin-bottom:8px">🧳 Passageiro(s) <button class="bs" style="font-size:11px;margin-left:8px" onclick="addPaxBlock()" id="btn-add-pax">+ Adicionar passageiro</button></div>
       <div id="pax-blocks"></div>
       <div class="sep"></div>
+    </div>
+    <div id="form-aereo">
       <div class="ct" style="margin-bottom:8px">✈️ Voos <button class="bs" style="font-size:11px;margin-left:8px" onclick="addVooBlock()" id="btn-add-voo">+ Adicionar voo</button></div>
       <div id="voo-blocks"></div>
     </div>
@@ -237,8 +240,8 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
         <div class="field"><label>Categoria</label><select id="ho-cat"><option>3 estrelas</option><option>4 estrelas</option><option>5 estrelas</option><option>Resort</option></select></div>
       </div>
       <div class="g3" style="margin-bottom:10px">
-        <div class="field"><label>Check-in</label><input type="date" id="ho-in"></div>
-        <div class="field"><label>Check-out</label><input type="date" id="ho-out"></div>
+        <div class="field"><label>Check-in</label><input type="date" id="ho-in" onchange="calcDiariasHotel()"></div>
+        <div class="field"><label>Check-out</label><input type="date" id="ho-out" onchange="calcDiariasHotel()"></div>
         <div class="field"><label>Diárias</label><input type="number" id="ho-dias" value="1" min="1"></div>
       </div>
       <!-- QUARTOS DINÂMICOS -->
@@ -267,11 +270,7 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
     <!-- LOCAÇÃO DE VEÍCULOS -->
     <div id="form-locacao" style="display:none">
       <div class="info-box">🚗 Preencha os dados da locação de veículos.</div>
-      <div class="ct" style="margin-bottom:8px">🧳 Locatário(s)
-        <button class="bs" style="font-size:11px;margin-left:8px" onclick="addPaxBlock()" id="btn-add-pax-loc">+ Adicionar locatário</button>
-      </div>
-      <div id="pax-blocks-loc-ref" style="display:none"></div>
-      <div class="sep"></div>
+
       <div class="g3" style="margin-bottom:10px">
         <div class="field"><label>Locadora *</label><input type="text" id="lc-locadora" placeholder="Ex: Localiza, Movida, Hertz..."></div>
         <div class="field"><label>Categoria do veículo</label><input type="text" id="lc-categoria" placeholder="Ex: Econômico, SUV, Executivo..."></div>
@@ -283,8 +282,8 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
         <div class="field"><label>Nº reserva / voucher</label><input type="text" id="lc-reserva"></div>
       </div>
       <div class="g3" style="margin-bottom:10px">
-        <div class="field"><label>Data/hora retirada</label><input type="datetime-local" id="lc-retirada"></div>
-        <div class="field"><label>Data/hora devolução</label><input type="datetime-local" id="lc-devolucao"></div>
+        <div class="field"><label>Data/hora retirada</label><input type="datetime-local" id="lc-retirada" onchange="calcDiasLocacao()"></div>
+        <div class="field"><label>Data/hora devolução</label><input type="datetime-local" id="lc-devolucao" onchange="calcDiasLocacao()"></div>
         <div class="field"><label>Dias de locação</label><input type="number" id="lc-dias" value="1" min="1"></div>
       </div>
       <div class="g3">
@@ -974,7 +973,11 @@ async function proximoNumFatura(){const{data}=await db.from('faturas').select('r
 
 // Parcelamento
 function setTipo(t,btn){tipoAtual=t;['aereo','hospedagem','transfer','seguro','locacao'].forEach(x=>document.getElementById('form-'+x).style.display=x===t?'block':'none');
-  if(t==='hospedagem') setTimeout(initQuartoBlocks,0);document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');atualizaVooValores();}
+  // Área de passageiros compartilhada: aparece para aéreo, seguro e locação
+  const spArea=document.getElementById('shared-pax-area');
+  if(spArea) spArea.style.display=(t==='aereo'||t==='seguro'||t==='locacao')?'block':'none';
+  if(t==='hospedagem') setTimeout(initQuartoBlocks,0);
+  if(t==='aereo'||t==='seguro'||t==='locacao') setTimeout(()=>{if(!document.getElementById('pb-1'))initPaxBlocks();},0);document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');atualizaVooValores();}
 function setParc(modo){modoParc=modo;document.getElementById('tog-av').classList.toggle('active',modo==='avista');document.getElementById('tog-pa').classList.toggle('active',modo==='parcelado');const area=document.getElementById('parc-area');if(modo==='parcelado'){area.style.display='block';numParc=2;buildParcGrid();}else{area.style.display='none';numParc=1;}atualizaResumoPgto();}
 function buildParcGrid(){const grid=document.getElementById('parc-grid');if(!grid)return;grid.innerHTML='';const venda=parseFloat(document.getElementById('v-venda').value)||0;for(let i=2;i<=10;i++){const btn=document.createElement('button');btn.className='parcela-btn'+(i===numParc?' selected':'');btn.innerHTML='<div style="font-weight:600">'+i+'x</div>'+(venda?'<div style="font-size:10px;opacity:.8">'+fmtBRL(venda/i)+'</div>':'');btn.onclick=()=>{numParc=i;buildParcGrid();atualizaResumoPgto();};grid.appendChild(btn);}}
 function onPgtoChange(){const pgto=gv('v-pgto');if(['PIX','Transferência bancária','Cartão de débito'].includes(pgto)){setParc('avista');document.getElementById('tog-pa').disabled=true;document.getElementById('tog-pa').style.opacity='.4';}else{document.getElementById('tog-pa').disabled=false;document.getElementById('tog-pa').style.opacity='1';}atualizaResumoPgto();}
@@ -1032,7 +1035,7 @@ async function salvarVenda(){
   }
 }
 
-function limparVenda(){['v-custo','v-fee','v-margem','v-venda','ho-hosp','ho-doc','ho-hotel','ho-end','ho-in','ho-out','ho-quarto','tr-pax','tr-tel','tr-orig','tr-dest','v-obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('c-base').textContent='R$ 0,00';document.getElementById('c-imp').textContent='- R$ 0,00';document.getElementById('c-luc').textContent='R$ 0,00';sv('v-cli','');setParc('avista');sv('v-pgto','PIX');onPgtoChange();initPaxBlocks();initVooBlocks();atualizaVooValores();initQuartoBlocks();gerarNumVenda();
+function limparVenda(){['v-custo','v-fee','v-margem','v-venda','ho-hosp','ho-doc','ho-hotel','ho-end','ho-in','ho-out','ho-quarto','tr-pax','tr-tel','tr-orig','tr-dest','v-obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('c-base').textContent='R$ 0,00';document.getElementById('c-imp').textContent='- R$ 0,00';document.getElementById('c-luc').textContent='R$ 0,00';sv('v-cli','');setParc('avista');sv('v-pgto','PIX');onPgtoChange();initPaxBlocks();initVooBlocks();atualizaVooValores();initQuartoBlocks();const sp=document.getElementById('shared-pax-area');if(sp)sp.style.display='block';gerarNumVenda();
   sv('v-forn-cartao-txt','');sv('v-forn-cartao-id','');sv('v-forn-parc-val','');
   const fb=document.getElementById('v-forn-fatura-box');if(fb)fb.style.display='none';
   const fp=document.getElementById('v-forn-parcelas');if(fp)fp.value='1';
@@ -2356,6 +2359,132 @@ function imprimirRel(elId){
   document.getElementById('print-area').innerHTML=c;
   window.print();
   setTimeout(()=>document.getElementById('print-area').innerHTML='',1000);
+}
+
+// ── COLETA DE DADOS: QUARTOS, SEGURO, LOCAÇÃO ─────────────────────────────
+
+function coletarQuartos(){
+  const list=[];
+  for(let i=1;i<=9;i++){
+    const el=document.getElementById('qtype-'+i);
+    if(!el) continue;
+    list.push({
+      tipo: el.value||'',
+      regime: document.getElementById('qregime-'+i)?.value||'',
+      obs: document.getElementById('qobs-'+i)?.value||''
+    });
+  }
+  return list.length ? list : [{tipo:'Standard',regime:'Café da manhã',obs:''}];
+}
+
+function coletarSeguro(){
+  const paxList=coletarPax();
+  const solic=gv('sg-solic');
+  if(solic) salvarSolicitante(solic);
+  return {
+    passageiros: paxList,
+    seguradora:  gv('sg-seguradora'),
+    plano:       gv('sg-plano'),
+    apolice:     gv('sg-apolice'),
+    destino:     gv('sg-destino'),
+    inicio:      gv('sg-inicio'),
+    fim:         gv('sg-fim'),
+    obs:         gv('sg-obs'),
+    solic:       solic
+  };
+}
+
+function coletarLocacao(){
+  const paxList=coletarPax();
+  const solic=gv('lc-solic');
+  if(solic) salvarSolicitante(solic);
+  return {
+    passageiros: paxList,
+    locadora:    gv('lc-locadora'),
+    categoria:   gv('lc-categoria'),
+    modelo:      gv('lc-modelo'),
+    orig:        gv('lc-orig'),
+    dest:        gv('lc-dest'),
+    reserva:     gv('lc-reserva'),
+    retirada:    gv('lc-retirada'),
+    devolucao:   gv('lc-devolucao'),
+    dias:        gv('lc-dias')||'1',
+    cobertura:   gv('lc-cobertura'),
+    solic:       solic,
+    obs:         gv('lc-obs')
+  };
+}
+
+// ── CÁLCULO AUTOMÁTICO DE DIAS / DIÁRIAS ───────────────────────────────────
+
+function calcDiasLocacao(){
+  const ret=document.getElementById('lc-retirada')?.value;
+  const dev=document.getElementById('lc-devolucao')?.value;
+  if(!ret||!dev) return;
+  const diff=new Date(dev)-new Date(ret);
+  if(diff<=0) return;
+  const dias=Math.ceil(diff/(1000*60*60*24));
+  const el=document.getElementById('lc-dias');
+  if(el) el.value=dias;
+}
+
+function calcDiariasHotel(){
+  const cin=document.getElementById('ho-in')?.value;
+  const cout=document.getElementById('ho-out')?.value;
+  if(!cin||!cout) return;
+  const diff=new Date(cout)-new Date(cin);
+  if(diff<=0) return;
+  const dias=Math.ceil(diff/(1000*60*60*24));
+  const el=document.getElementById('ho-dias');
+  if(el) el.value=dias;
+}
+
+// ── BLOCOS DE QUARTOS ──────────────────────────────────────────────────────
+let quartoCount=0;
+function initQuartoBlocks(){
+  quartoCount=0;
+  const el=document.getElementById('quarto-blocks');
+  if(el) el.innerHTML='';
+  addQuartoBlock();
+}
+function addQuartoBlock(){
+  if(quartoCount>=9){showAlert('v-alert','Máximo 9 quartos.','i');return;}
+  quartoCount++;
+  const n=quartoCount;
+  const el=document.getElementById('quarto-blocks');
+  if(!el) return;
+  const div=document.createElement('div');
+  div.className='pax-block';div.id='qb-'+n;
+  div.style.cssText='background:#fdf8ff;border-color:#d0b8f0';
+  div.innerHTML=`<div class="pax-block-title" style="color:#534AB7">
+    <span>🛏️ Quarto ${n}</span>
+    ${n>1?`<button class="bd" style="font-size:10px" onclick="remQuartoBlock(${n})">✕ Remover</button>`:''}
+  </div>
+  <div class="g3">
+    <div class="field"><label>Tipo de quarto</label>
+      <input type="text" id="qtype-${n}" placeholder="Ex: Standard, Superior, Suite...">
+    </div>
+    <div class="field"><label>Regime</label>
+      <select id="qregime-${n}">
+        <option>Café da manhã</option>
+        <option>Meia pensão</option>
+        <option>All inclusive</option>
+        <option>Sem refeição</option>
+      </select>
+    </div>
+    <div class="field"><label>Observação</label>
+      <input type="text" id="qobs-${n}" placeholder="Ex: vista mar, andar alto...">
+    </div>
+  </div>`;
+  el.appendChild(div);
+  const btn=document.getElementById('btn-add-quarto');
+  if(btn) btn.style.display=quartoCount>=9?'none':'';
+}
+function remQuartoBlock(n){
+  const el=document.getElementById('qb-'+n);if(el)el.remove();
+  quartoCount--;
+  const btn=document.getElementById('btn-add-quarto');
+  if(btn) btn.style.display='';
 }
 
 checkSession();
