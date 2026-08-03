@@ -786,26 +786,25 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
         </select>
       </div>
     </div>
-    <div id="lista-recebimentos"><div class="empty">Carregando...
+    <div id="lista-recebimentos"><div class="empty">Carregando...</div></div>
+  </div>
+</div>
 <!-- CAIXA -->
 <div class="section" id="sec-caixa">
-  <!-- Painel de saldo -->
   <div class="g3" style="margin-bottom:14px">
     <div class="mc" style="border-left:4px solid #1D9E75">
-      <div class="mc-lbl">Saldo atual</div>
+      <div class="mc-lbl">Saldo atual (C6 Bank)</div>
       <div class="mc-val green" id="cx-saldo-atual">R$ 0,00</div>
     </div>
     <div class="mc" style="border-left:4px solid #185FA5">
-      <div class="mc-lbl">Total entradas (mês)</div>
+      <div class="mc-lbl">Entradas do mês</div>
       <div class="mc-val blue" id="cx-entradas-mes">R$ 0,00</div>
     </div>
     <div class="mc" style="border-left:4px solid #E24B4A">
-      <div class="mc-lbl">Total saídas (mês)</div>
+      <div class="mc-lbl">Saídas do mês</div>
       <div class="mc-val red" id="cx-saidas-mes">R$ 0,00</div>
     </div>
   </div>
-
-  <!-- Lançamento manual -->
   <div class="card">
     <div class="ct">➕ Lançar movimentação</div>
     <div class="g3" style="margin-bottom:10px">
@@ -849,22 +848,18 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
     </div>
     <div id="cx-alert" style="margin-top:10px"></div>
   </div>
-
-  <!-- Extrato -->
   <div class="card">
     <div class="ct" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
       <span>📄 Extrato — C6 Bank</span>
-      <div style="display:flex;gap:8px;align-items:center">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <select id="cx-mes-filtro" style="font-size:11px;padding:4px 8px;border:1px solid #ddd;border-radius:6px" onchange="renderCaixa()"></select>
         <button class="bs" style="font-size:11px" onclick="imprimirRel('cx-extrato-print')">🖨 Imprimir</button>
       </div>
     </div>
     <div id="cx-extrato-print">
-      <div id="cx-extrato"><div class="empty">Carregando...</div></div>
+      <div id="cx-extrato"><div class="empty">Nenhuma movimentação ainda. Lance o saldo inicial para começar.</div></div>
     </div>
   </div>
-</div>
-
 </div></div>
 
 <script>
@@ -1651,8 +1646,13 @@ function editarVendaCompleta(id){
 }
 
 async function salvarEditVenda(id){
-  const status=document.getElementById('ev-status-'+id)?.value,vencimento=document.getElementById('ev-venc-'+id)?.value||null,obs=document.getElementById('ev-obs-'+id)?.value.trim()||null;
-  const{error}=await db.from('vendas').update({status,vencimento,obs}).eq('id',id);
+  const status=document.getElementById('ev-status-'+id)?.value;
+  const vencimento=document.getElementById('ev-venc-'+id)?.value||null;
+  const obs=document.getElementById('ev-obs-'+id)?.value.trim()||null;
+  const mesEdit=document.getElementById('ev-mes-'+id)?.value||null;
+  const updatePayload={status,vencimento,obs};
+  if(mesEdit) updatePayload.mes=mesEdit;
+  const{error}=await db.from('vendas').update(updatePayload).eq('id',id);
   if(error){showAlert('ev-alert-'+id,'Erro: '+error.message,'e');return;}
   const idx=vendas.findIndex(v=>v.id===id);if(idx>=0)vendas[idx]={...vendas[idx],status,vencimento,obs};
   showAlert('ev-alert-'+id,'✅ Atualizado!','s');atualizaDash();setTimeout(()=>fecharModal(),1500);
