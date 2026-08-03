@@ -1370,10 +1370,23 @@ function atualizaDash(){
 
   // Receita bruta: distribui parcelas pelo vencimento
   let receita=0, base=0;
+  console.log('=== DEBUG PAINEL '+mes+' ===');
   vendas.forEach(v=>{
-    distribuirParcelas(v,'venda').forEach(p=>{ if(p.mesKey===mes) receita+=p.valor; });
-    distribuirParcelas(v,'base').forEach(p=>{ if(p.mesKey===mes) base+=p.valor; });
+    const distV=distribuirParcelas(v,'venda');
+    const distB=distribuirParcelas(v,'base');
+    const parcelaMes_v=distV.find(p=>p.mesKey===mes);
+    const parcelaMes_b=distB.find(p=>p.mesKey===mes);
+    if(parcelaMes_v||v.mes===mes){
+      console.log('Venda',v.ref,'| mes=',v.mes,'| vencimento=',v.vencimento,'| pgto_parcelas=',v.pgto_parcelas,'| pgto_modalidade=',v.pgto_modalidade,'| venda=',v.venda,'| fee=',v.fee,'| margem=',v.margem);
+      console.log('  → distV:',distV.map(p=>p.mesKey+':'+p.valor.toFixed(2)).join(', '));
+      console.log('  → distB:',distB.map(p=>p.mesKey+':'+p.valor.toFixed(2)).join(', '));
+      console.log('  → parcela em '+mes+':', parcelaMes_v?.valor||0, '| base:', parcelaMes_b?.valor||0);
+    }
+    distV.forEach(p=>{ if(p.mesKey===mes) receita+=p.valor; });
+    distB.forEach(p=>{ if(p.mesKey===mes) base+=p.valor; });
   });
+  console.log('TOTAL receita=',receita,'base=',base);
+  console.log('=== FIM DEBUG ===');
 
   const imp=base*aliq;
   const despTot=dm.reduce((s,d)=>s+parseFloat(d.valor||0),0);
