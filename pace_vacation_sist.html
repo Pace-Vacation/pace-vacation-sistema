@@ -1672,13 +1672,37 @@ async function salvarEditVenda(id){
   const status=document.getElementById('ev-status-'+id)?.value;
   const vencimento=document.getElementById('ev-venc-'+id)?.value||null;
   const obs=document.getElementById('ev-obs-'+id)?.value.trim()||null;
-  const mesEdit=document.getElementById('ev-mes-'+id)?.value||null;
+
+  // Campo mes: input[type=month] retorna "YYYY-MM", banco usa "MM/YYYY"
+  const mesRaw=document.getElementById('ev-mes-'+id)?.value||null;
+  let mesConvertido=null;
+  if(mesRaw&&mesRaw.includes('-')){
+    const[y,m]=mesRaw.split('-');
+    mesConvertido=m.padStart(2,'0')+'/'+y;
+  }
+
   const updatePayload={status,vencimento,obs};
-  if(mesEdit) updatePayload.mes=mesEdit;
+  if(mesConvertido) updatePayload.mes=mesConvertido;
+
   const{error}=await db.from('vendas').update(updatePayload).eq('id',id);
   if(error){showAlert('ev-alert-'+id,'Erro: '+error.message,'e');return;}
-  const idx=vendas.findIndex(v=>v.id===id);if(idx>=0)vendas[idx]={...vendas[idx],status,vencimento,obs};
-  showAlert('ev-alert-'+id,'✅ Atualizado!','s');atualizaDash();setTimeout(()=>fecharModal(),1500);
+
+  // Atualizar array local com todos os campos alterados
+  const idx=vendas.findIndex(v=>v.id===id);
+  if(idx>=0){
+    vendas[idx]={
+      ...vendas[idx],
+      status,
+      vencimento,
+      obs,
+      ...(mesConvertido?{mes:mesConvertido}:{})
+    };
+  }
+
+  const msgMes = mesConvertido ? ' Mês alterado para '+mesConvertido+'.' : '';
+  showAlert('ev-alert-'+id,'✅ Venda atualizada!'+msgMes,'s');
+  atualizaDash();
+  setTimeout(()=>fecharModal(),1800);
 }
 
 // DRE
