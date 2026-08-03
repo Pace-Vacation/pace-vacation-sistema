@@ -1450,92 +1450,115 @@ function atualizaDash(){
 function abrirVenda(id){
   const v=vendas.find(x=>x.id===id);if(!v)return;
   const d=v.detalhes||{};
-  const cl=clientes.find(c=>c.id===v.cliente_id);
   document.getElementById('modal-title-txt').textContent='Venda '+v.ref;
 
-  // Montar passageiros para exibição
   let paxInfo='';
   if(d.passageiros&&d.passageiros.length){
     paxInfo=d.passageiros.map(p=>'<strong>'+p.nome+'</strong>'+(p.doc?' · '+p.doc:'')+(p.nasc?' · Nasc: '+fmtD(p.nasc):'')).join('<br>');
   } else if(d.hosp) paxInfo='<strong>'+d.hosp+'</strong>'+(d.doc?' · '+d.doc:'');
-  else if(d.pax) paxInfo='<strong>'+d.pax+'</strong>';
+  else if(d.pax)    paxInfo='<strong>'+d.pax+'</strong>';
 
-  // Montar voos para exibição
-  let voosInfo='';
+  let servicoInfo='';
   if(d.voos&&d.voos.length){
-    voosInfo=d.voos.map((vo,i)=>'<div style="padding:8px 10px;background:#f8faff;border:1px solid #c8d8f0;border-radius:6px;margin-bottom:4px;font-size:12px">'+
-      '<strong>Voo '+(i+1)+': '+(vo.orig||'?')+'→'+(vo.dest||'?')+'</strong> · '+(vo.cia||'-')+' '+(vo.num||'')+' · '+vo.classe+
-      (vo.ida?'<br>Saída: '+vo.ida:'')+(vo.pnr?' · PNR: '+vo.pnr:'')+(vo.bilhete?' · Bilhete: '+vo.bilhete:'')+
-      (vo.custo?'<span style="float:right;color:#185FA5;font-weight:600">Custo: '+fmtBRL(vo.custo)+'</span>':'')+
-      '</div>').join('');
+    servicoInfo=d.voos.map((vo,i)=>{
+      return '<div style="padding:8px 10px;background:#f8faff;border:1px solid #c8d8f0;border-radius:6px;margin-bottom:4px;font-size:12px">'+
+        '<strong>Voo '+(i+1)+': '+(vo.orig||'?')+'→'+(vo.dest||'?')+'</strong> · '+(vo.cia||'-')+' '+(vo.num||'')+' · '+vo.classe+
+        (vo.ida?'<br>Saída: '+vo.ida:'')+
+        (vo.pnr?' · PNR: '+vo.pnr:'')+
+        (vo.bilhete?' · Bilhete: '+vo.bilhete:'')+
+        (vo.custo?'<span style="float:right;color:#185FA5;font-weight:600">Custo: '+fmtBRL(vo.custo)+'</span>':'')+
+        '</div>';
+    }).join('');
   } else if(d.hotel){
-    voosInfo='<div style="padding:8px 10px;background:#f8faff;border-radius:6px;font-size:12px">'+
-      '<strong>'+d.hotel+'</strong> · '+(d.cat||'')+' · Check-in: '+fmtD(d.chkin)+' · Check-out: '+fmtD(d.chkout)+' · '+(d.dias||1)+' diária(s)</div>';
+    servicoInfo='<div style="padding:8px 10px;background:#f8faff;border-radius:6px;font-size:12px">'+
+      '<strong>'+d.hotel+'</strong> · '+(d.cat||'')+' · Check-in: '+fmtD(d.chkin)+' · Check-out: '+fmtD(d.chkout)+'</div>';
+  } else if(d.seguradora){
+    servicoInfo='<div style="padding:8px 10px;background:#f0faf5;border-radius:6px;font-size:12px">'+
+      '<strong>'+d.seguradora+'</strong>'+(d.plano?' · '+d.plano:'')+
+      (d.destino?'<br>Destino: '+d.destino:'')+
+      (d.inicio?' · '+fmtD(d.inicio)+' a '+fmtD(d.fim):'')+
+      (d.apolice?'<br>Apólice: '+d.apolice:'')+
+      '</div>';
+  } else if(d.locadora){
+    servicoInfo='<div style="padding:8px 10px;background:#fff8ed;border-radius:6px;font-size:12px">'+
+      '<strong>'+d.locadora+'</strong>'+(d.modelo?' · '+d.modelo:'')+
+      (d.categoria?' · '+d.categoria:'')+
+      (d.orig?'<br>Retirada: '+d.orig:'')+
+      (d.dest?' → Devolução: '+d.dest:'')+
+      (d.retirada?'<br>'+d.retirada:'')+
+      (d.dias?' · '+d.dias+' dia(s)':'')+
+      '</div>';
   }
 
-  const pgtoStr = v.pgto_modalidade==='parcelado'
+  const pgtoStr=v.pgto_modalidade==='parcelado'
     ? v.pgto+' '+v.pgto_parcelas+'x '+fmtBRL(v.pgto_valor_parcela)
     : v.pgto||'-';
 
-  const body = `
-  <div class="g4" style="margin-bottom:14px">
-    <div class="mc"><div class="mc-lbl">Venda</div><div style="font-weight:700;color:#185FA5">${v.ref}</div></div>
-    <div class="mc"><div class="mc-lbl">Tipo</div><span class="badge b-${v.tipo}">${tl(v.tipo)}</span></div>
-    <div class="mc"><div class="mc-lbl">Valor</div><div style="font-weight:700">${fmtBRL(v.venda)}</div></div>
-    <div class="mc"><div class="mc-lbl">Status</div><span class="badge b-${v.status}">${v.status}</span></div>
-  </div>
-  <div class="g2" style="margin-bottom:12px">
-    <div><div class="ct">🧳 Passageiro(s)</div><div style="font-size:13px;line-height:1.6">${paxInfo||'-'}</div></div>
-    <div><div class="ct">✈️ Serviço</div>${voosInfo||'<div style="font-size:12px;color:#888">—</div>'}</div>
-  </div>
-  <div class="g4" style="margin-bottom:12px">
-    <div class="mc"><div class="mc-lbl">Custo</div><div style="font-weight:600">${fmtBRL(v.custo)}</div></div>
-    <div class="mc"><div class="mc-lbl">Fee</div><div style="font-weight:600">${fmtBRL(v.fee)}</div></div>
-    <div class="mc"><div class="mc-lbl">Margem</div><div style="font-weight:600">${fmtBRL(v.margem)}</div></div>
-    <div class="mc"><div class="mc-lbl">Pagamento</div><div style="font-size:12px">${pgtoStr}</div></div>
-  </div>
-  ${v.obs?'<div class="info-box" style="margin-bottom:12px">📝 '+v.obs+'</div>':''}
-  \${(()=>{
-    const desc=v.detalhes&&v.detalhes.desconto;
-    if(!desc||!desc.desconto)return'';
-    return '<div style="background:#fff8ed;border:1px solid #f0d080;border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:12px">'
-      +'<strong style="color:#875500">🏷 Desconto aplicado: </strong>'
-      +fmtBRL(desc.desconto)
-      +' '+(desc.tipo==='pct'?'('+desc.valor+'%)':'(valor fixo)')
-      +(desc.motivo?' — '+desc.motivo:'')
-      +' <span style="color:#888">· Preço original: '+fmtBRL(desc.original)+'</span>'
-      +'</div>';
-  })()}
-  <div class="sep"></div>
-  <div style="font-size:12px;font-weight:600;color:#666;margin-bottom:10px;text-transform:uppercase">✏ Editar campos rápidos</div>
-  <div class="g3" style="margin-bottom:12px">
-    <div class="field"><label>Status</label>
-      <select id="ev-status-${id}">
-        <option value="pendente" ${v.status==='pendente'?'selected':''}>Pendente</option>
-        <option value="parcial" ${v.status==='parcial'?'selected':''}>Parcial</option>
-        <option value="pago" ${v.status==='pago'?'selected':''}>Pago</option>
-      </select>
-    </div>
-    <div class="field"><label>Vencimento</label><input type="date" id="ev-venc-${id}" value="${v.vencimento||''}"></div>
-    <div class="field"><label>Observações</label><input type="text" id="ev-obs-${id}" value="${v.obs||''}"></div>
-  </div>
-  <div class="br" style="margin-bottom:12px">
-    <button class="bp" onclick="salvarEditVenda('${id}')">✔ Salvar alterações</button>
-  </div>
-  <div id="ev-alert-${id}" style="margin-top:4px;margin-bottom:8px"></div>
-  <div class="sep"></div>
-  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-    <button class="bs" style="background:#E6F1FB;border-color:#378ADD;color:#185FA5;font-weight:600" onclick="fecharModal();goTo('vendas',document.querySelector('.nb'));editarVendaCompleta('${id}')">
-      🖊 Editar venda completa
-    </button>
-    <button class="bd" style="padding:8px 16px;font-size:13px" onclick="excluirVenda('${id}')">
-      🗑 Excluir venda
-    </button>
-  </div>`;
+  // Desconto
+  let descontoHtml='';
+  const desc=d.desconto;
+  if(desc&&desc.desconto){
+    descontoHtml='<div style="background:#fff8ed;border:1px solid #f0d080;border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:12px">'+
+      '<strong style="color:#875500">🏷 Desconto: </strong>'+fmtBRL(desc.desconto)+
+      (desc.tipo==='pct'?' ('+desc.valor+'%)':' (valor fixo)')+
+      (desc.motivo?' — '+desc.motivo:'')+
+      ' · Preço original: '+fmtBRL(desc.original)+
+      '</div>';
+  }
+
+  // Mês atual no formato input[type=month] = YYYY-MM
+  const mesAtualInput = v.mes ? v.mes.split('/').reverse().join('-') : '';
+
+  const body=
+    '<div class="g4" style="margin-bottom:14px">'+
+      '<div class="mc"><div class="mc-lbl">Venda</div><div style="font-weight:700;color:#185FA5">'+v.ref+'</div></div>'+
+      '<div class="mc"><div class="mc-lbl">Tipo</div><span class="badge b-'+v.tipo+'">'+tl(v.tipo)+'</span></div>'+
+      '<div class="mc"><div class="mc-lbl">Valor</div><div style="font-weight:700">'+fmtBRL(v.venda)+'</div></div>'+
+      '<div class="mc"><div class="mc-lbl">Status</div><span class="badge b-'+v.status+'">'+v.status+'</span></div>'+
+    '</div>'+
+    '<div class="g2" style="margin-bottom:12px">'+
+      '<div><div class="ct">🧳 Passageiro(s)</div><div style="font-size:13px;line-height:1.8">'+(paxInfo||'—')+'</div></div>'+
+      '<div><div class="ct">✈️ Serviço</div>'+(servicoInfo||'<div style="font-size:12px;color:#888">—</div>')+'</div>'+
+    '</div>'+
+    '<div class="g4" style="margin-bottom:12px">'+
+      '<div class="mc"><div class="mc-lbl">Custo</div><div style="font-weight:600">'+fmtBRL(v.custo)+'</div></div>'+
+      '<div class="mc"><div class="mc-lbl">Fee</div><div style="font-weight:600">'+fmtBRL(v.fee)+'</div></div>'+
+      '<div class="mc"><div class="mc-lbl">Margem</div><div style="font-weight:600">'+fmtBRL(v.margem)+'</div></div>'+
+      '<div class="mc"><div class="mc-lbl">Pagamento</div><div style="font-size:12px">'+pgtoStr+'</div></div>'+
+    '</div>'+
+    (v.obs?'<div class="info-box" style="margin-bottom:10px">📝 '+v.obs+'</div>':'')+
+    descontoHtml+
+    '<div class="sep"></div>'+
+    '<div style="font-size:12px;font-weight:600;color:#666;margin-bottom:10px;text-transform:uppercase">✏ Editar campos rápidos</div>'+
+    '<div class="g3" style="margin-bottom:8px">'+
+      '<div class="field"><label>Status</label>'+
+        '<select id="ev-status-'+id+'">'+
+          '<option value="pendente"'+(v.status==='pendente'?' selected':'')+'>Pendente</option>'+
+          '<option value="parcial"'+(v.status==='parcial'?' selected':'')+'>Parcial</option>'+
+          '<option value="pago"'+(v.status==='pago'?' selected':'')+'>Pago</option>'+
+        '</select>'+
+      '</div>'+
+      '<div class="field"><label>Vencimento</label><input type="date" id="ev-venc-'+id+'" value="'+(v.vencimento||'')+'"></div>'+
+      '<div class="field"><label>Observações</label><input type="text" id="ev-obs-'+id+'" value="'+(v.obs||'')+'"></div>'+
+    '</div>'+
+    '<div class="field" style="margin-bottom:12px">'+
+      '<label>📅 Mês de referência <span style="font-size:10px;color:#888;font-weight:400">(altere para corrigir vendas retroativas — atual: <strong>'+( v.mes||'—')+'</strong>)</span></label>'+
+      '<input type="month" id="ev-mes-'+id+'" value="'+mesAtualInput+'" style="padding:7px 10px;border:1px solid #ccc;border-radius:8px;font-size:13px;margin-top:4px">'+
+    '</div>'+
+    '<div class="br" style="margin-bottom:12px">'+
+      '<button class="bp" onclick="salvarEditVenda(\"'+id+'\")">' + '✔ Salvar alterações</button>'+
+    '</div>'+
+    '<div id="ev-alert-'+id+'" style="margin-top:4px;margin-bottom:8px"></div>'+
+    '<div class="sep"></div>'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'+
+      '<button class="bs" style="background:#E6F1FB;border-color:#378ADD;color:#185FA5;font-weight:600" onclick="fecharModal();goTo(\"vendas\",document.querySelector(\".nb\"));editarVendaCompleta(\"'+id+'\")">🖊 Editar venda completa</button>'+
+      '<button class="bd" style="padding:8px 16px;font-size:13px" onclick="excluirVenda(\"'+id+'\")">🗑 Excluir venda</button>'+
+    '</div>';
 
   document.getElementById('modal-body').innerHTML=body;
   document.getElementById('modal-venda').classList.add('open');
 }
+
 function fecharModal(){document.getElementById('modal-venda').classList.remove('open');}
 document.addEventListener('DOMContentLoaded',function(){
   const mv=document.getElementById('modal-venda');
