@@ -163,6 +163,7 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
     <button class="nb" onclick="goTo('fornecedores',this)">🏢 Fornecedores</button>
     <button class="nb" onclick="goTo('faturas',this)">🧾 Faturas</button>
     <button class="nb" onclick="goTo('cartoes',this)">💳 Cartões</button>
+    <button class="nb" onclick="goTo('caixa',this)">🏦 Caixa</button>
     <button class="nb" onclick="goTo('recebimentos',this)">💰 Recebimentos</button>
     <button class="nb" onclick="goTo('relatorio',this)">📄 Relatórios</button>
     <button class="nb" onclick="goTo('config',this)">⚙️ Config</button>
@@ -786,6 +787,84 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
       </div>
     </div>
     <div id="lista-recebimentos"><div class="empty">Carregando...
+<!-- CAIXA -->
+<div class="section" id="sec-caixa">
+  <!-- Painel de saldo -->
+  <div class="g3" style="margin-bottom:14px">
+    <div class="mc" style="border-left:4px solid #1D9E75">
+      <div class="mc-lbl">Saldo atual</div>
+      <div class="mc-val green" id="cx-saldo-atual">R$ 0,00</div>
+    </div>
+    <div class="mc" style="border-left:4px solid #185FA5">
+      <div class="mc-lbl">Total entradas (mês)</div>
+      <div class="mc-val blue" id="cx-entradas-mes">R$ 0,00</div>
+    </div>
+    <div class="mc" style="border-left:4px solid #E24B4A">
+      <div class="mc-lbl">Total saídas (mês)</div>
+      <div class="mc-val red" id="cx-saidas-mes">R$ 0,00</div>
+    </div>
+  </div>
+
+  <!-- Lançamento manual -->
+  <div class="card">
+    <div class="ct">➕ Lançar movimentação</div>
+    <div class="g3" style="margin-bottom:10px">
+      <div class="field"><label>Tipo *</label>
+        <select id="cx-tipo" onchange="onCxTipoChange()">
+          <option value="saldo_inicial">💰 Saldo inicial</option>
+          <option value="entrada">⬆️ Entrada</option>
+          <option value="saida">⬇️ Saída</option>
+          <option value="aplicacao">📈 Aplicação (investimento)</option>
+          <option value="resgate">📉 Resgate (investimento)</option>
+        </select>
+      </div>
+      <div class="field"><label>Data *</label>
+        <input type="date" id="cx-data">
+      </div>
+      <div class="field"><label>Valor (R$) *</label>
+        <input type="number" id="cx-valor" step="0.01" placeholder="0,00">
+      </div>
+    </div>
+    <div class="g2" style="margin-bottom:10px">
+      <div class="field"><label>Descrição *</label>
+        <input type="text" id="cx-desc" placeholder="Ex: Pagamento cliente, Aluguel, CDB Banco X...">
+      </div>
+      <div class="field"><label>Categoria</label>
+        <select id="cx-cat">
+          <option value="venda">Recebimento de venda</option>
+          <option value="despesa">Pagamento de despesa</option>
+          <option value="investimento">Investimento</option>
+          <option value="cartao">Pagamento de cartão</option>
+          <option value="transferencia">Transferência</option>
+          <option value="outros">Outros</option>
+        </select>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:10px">
+      <label>Observação</label>
+      <input type="text" id="cx-obs" placeholder="Complemento opcional...">
+    </div>
+    <div class="br">
+      <button class="bp" onclick="lancarCaixa()">✔ Lançar</button>
+    </div>
+    <div id="cx-alert" style="margin-top:10px"></div>
+  </div>
+
+  <!-- Extrato -->
+  <div class="card">
+    <div class="ct" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <span>📄 Extrato — C6 Bank</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="cx-mes-filtro" style="font-size:11px;padding:4px 8px;border:1px solid #ddd;border-radius:6px" onchange="renderCaixa()"></select>
+        <button class="bs" style="font-size:11px" onclick="imprimirRel('cx-extrato-print')">🖨 Imprimir</button>
+      </div>
+    </div>
+    <div id="cx-extrato-print">
+      <div id="cx-extrato"><div class="empty">Carregando...</div></div>
+    </div>
+  </div>
+</div>
+
 </div></div>
 
 <script>
@@ -822,6 +901,9 @@ async function checkSession(){const{data:{session}}=await db.auth.getSession();i
 async function init(){
   await Promise.all([loadCfg(),loadClientes(),loadPax(),loadForn(),loadVendas(),loadDesp(),loadFaturas(),loadCartoes()]);
   atualizaDash();preencherSelCli();gerarNumVenda();preencherFiltrosRec();
+  // Data padrão do caixa = hoje
+  const cxDataEl=document.getElementById('cx-data');
+  if(cxDataEl) cxDataEl.value=new Date().toISOString().split('T')[0];
   const n=new Date();document.getElementById('dre-mes').value=n.getMonth();document.getElementById('dre-ano').value=n.getFullYear();
   initVooBlocks();initPaxBlocks();atualizaVooValores();
 }
@@ -858,6 +940,7 @@ function goTo(sec,btn){
   if(sec==='faturas'){preencherSelCli();renderFaturas();naoFaturadasVisivel=false;const nfa=document.getElementById('nao-faturadas-area');if(nfa)nfa.style.display='none';}
   if(sec==='relatorio')preencherSelCli();
   if(sec==='config')loadCfgForm();
+  if(sec==='caixa'){loadCaixa().then(()=>{populateCxMesFiltro();renderCaixa();});}
   if(sec==='recebimentos'){preencherFiltrosRec();renderRecebimentos();}
   if(sec==='cartoes'){loadCartoes().then(()=>renderCartoesPainel());}
 }
@@ -1042,7 +1125,11 @@ async function salvarVenda(){
   }else{
     det={pax:gv('tr-pax'),tel:gv('tr-tel'),num:gv('tr-num'),tipo:gv('tr-tipo'),veiculo:gv('tr-veiculo'),orig:gv('tr-orig'),dest:gv('tr-dest'),data:gv('tr-data')};
   }
-  const now=new Date();const mes=getMesStr(now.getMonth(),now.getFullYear());
+  const now=new Date();// Mês: ao editar, preserva o mês original da venda
+  const mesOriginal = window._editandoVendaId
+    ? (vendas.find(v=>v.id===window._editandoVendaId)?.mes || getMesStr(now.getMonth(),now.getFullYear()))
+    : getMesStr(now.getMonth(),now.getFullYear());
+  const mes = mesOriginal;
   const fee=parseFloat(document.getElementById('v-fee').value)||0,mg=parseFloat(document.getElementById('v-margem').value)||0;
   const custoVal=parseFloat(document.getElementById('v-custo').value)||0;
   const fornCartaoId=gv('v-forn-cartao-id')||null;
@@ -2042,10 +2129,16 @@ function renderRecebimentos(){
 
 async function marcarPago(vendaId){
   if(!confirm('Marcar esta venda como PAGA?'))return;
+  const hoje = new Date().toISOString().split('T')[0];
+  const dataRec = prompt('Data do recebimento (AAAA-MM-DD):', hoje);
+  if(!dataRec) return;
   const{error}=await db.from('vendas').update({status:'pago'}).eq('id',vendaId);
   if(error){alert('Erro: '+error.message);return;}
   const idx=vendas.findIndex(v=>v.id===vendaId);
-  if(idx>=0)vendas[idx]={...vendas[idx],status:'pago'};
+  if(idx>=0) vendas[idx]={...vendas[idx],status:'pago'};
+  // Lançar no caixa
+  const v=vendas[idx];
+  if(v) await lancarEntradaCaixa('Venda '+v.ref+(v.clientes?' — '+v.clientes.nome:''), parseFloat(v.venda||0), dataRec, vendaId, 'venda');
   renderRecebimentos();atualizaDash();
 }
 
@@ -2584,7 +2677,7 @@ async function baixarFaturaCompleta(ftId){
   const ft = faturas.find(f=>f.id===ftId);
   if(!ft) return;
   const cli = clientes.find(c=>c.id===ft.cliente_id);
-  if(!confirm('Dar baixa em TODAS as vendas da fatura '+ft.ref+'?\n\nIsso marcará todas as vendas vinculadas como PAGAS.')) return;
+  if(!confirm('Dar baixa em TODAS as vendas da fatura '+ft.ref+'? Isso marcará todas as vendas vinculadas como PAGAS.')) return;
 
   // Buscar vendas da fatura
   const{data:fvs} = await db.from('fatura_vendas').select('venda_id').eq('fatura_id',ftId);
@@ -2708,6 +2801,240 @@ function renderFaturas(){
     }).join('')+
     '</tbody></table></div>';
 }
+
+// ── MÓDULO CAIXA ──────────────────────────────────────────────────────────
+
+let caixaMovs = [];
+
+async function loadCaixa(){
+  const{data} = await db.from('caixa').select('*').order('data',{ascending:true}).order('created_at',{ascending:true});
+  caixaMovs = data||[];
+}
+
+function onCxTipoChange(){
+  const tipo = gv('cx-tipo');
+  const catEl = document.getElementById('cx-cat');
+  if(!catEl) return;
+  if(tipo==='aplicacao'||tipo==='resgate') catEl.value='investimento';
+  else if(tipo==='entrada') catEl.value='venda';
+  else if(tipo==='saida') catEl.value='despesa';
+  else if(tipo==='saldo_inicial') catEl.value='outros';
+}
+
+async function lancarCaixa(){
+  const tipo  = gv('cx-tipo');
+  const data  = gv('cx-data');
+  const valor = parseFloat(document.getElementById('cx-valor').value)||0;
+  const desc  = gv('cx-desc');
+  if(!data||!valor||!desc){showAlert('cx-alert','Preencha data, valor e descrição.','i');return;}
+
+  const{data:rd,error} = await db.from('caixa').insert([{
+    tipo, data, valor, descricao:desc,
+    categoria: gv('cx-cat'),
+    obs: gv('cx-obs')||null,
+    conta: 'C6 Bank'
+  }]).select();
+  if(error){showAlert('cx-alert','Erro: '+error.message,'e');return;}
+
+  caixaMovs.push(rd[0]);
+  caixaMovs.sort((a,b)=>a.data.localeCompare(b.data)||a.created_at.localeCompare(b.created_at));
+
+  ['cx-valor','cx-desc','cx-obs'].forEach(id=>sv(id,''));
+  showAlert('cx-alert','✅ Movimentação lançada!','s');
+  populateCxMesFiltro();
+  renderCaixa();
+}
+
+async function delCaixa(id){
+  if(!confirm('Remover esta movimentação?'))return;
+  await db.from('caixa').delete().eq('id',id);
+  caixaMovs = caixaMovs.filter(m=>m.id!==id);
+  populateCxMesFiltro();
+  renderCaixa();
+}
+
+function populateCxMesFiltro(){
+  const sel = document.getElementById('cx-mes-filtro');
+  if(!sel) return;
+  const meses = [...new Set(caixaMovs.map(m=>{
+    const d=new Date(m.data+'T12:00:00');
+    return String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
+  }))].sort().reverse();
+  const atual = getMesAtualStr();
+  const todos = [...new Set([atual,...meses])];
+  const val = sel.value || atual;
+  sel.innerHTML = todos.map(m=>`<option value="${m}"${m===val?' selected':''}>${m}</option>`).join('');
+}
+
+function renderCaixa(){
+  populateCxMesFiltro();
+  const sel = document.getElementById('cx-mes-filtro');
+  const mesFiltro = sel ? sel.value : getMesAtualStr();
+  const [mf,yf] = mesFiltro.split('/').map(Number);
+
+  // Calcular saldo acumulado até o início do mês filtrado
+  let saldoAcum = 0;
+  caixaMovs.forEach(m=>{
+    const d = new Date(m.data+'T12:00:00');
+    const mm = d.getMonth()+1, yy = d.getFullYear();
+    if(yy < yf || (yy===yf && mm < mf)){
+      saldoAcum += ehEntrada(m.tipo) ? parseFloat(m.valor) : -parseFloat(m.valor);
+    }
+  });
+
+  // Movimentações do mês
+  const movsDoMes = caixaMovs.filter(m=>{
+    const d = new Date(m.data+'T12:00:00');
+    return d.getMonth()+1===mf && d.getFullYear()===yf;
+  });
+
+  // Totais do mês
+  const entradasMes = movsDoMes.filter(m=>ehEntrada(m.tipo)).reduce((s,m)=>s+parseFloat(m.valor),0);
+  const saidasMes   = movsDoMes.filter(m=>!ehEntrada(m.tipo)).reduce((s,m)=>s+parseFloat(m.valor),0);
+  const saldoFinal  = calcSaldoTotal();
+
+  // Atualizar cards
+  document.getElementById('cx-saldo-atual').textContent  = fmtBRL(saldoFinal);
+  document.getElementById('cx-entradas-mes').textContent = fmtBRL(entradasMes);
+  document.getElementById('cx-saidas-mes').textContent   = fmtBRL(saidasMes);
+  document.getElementById('cx-saldo-atual').className    = 'mc-val '+(saldoFinal>=0?'green':'red');
+
+  const el = document.getElementById('cx-extrato');
+  if(!movsDoMes.length && saldoAcum===0){
+    el.innerHTML='<div class="empty">Nenhuma movimentação em '+mesFiltro+'.</div>';
+    return;
+  }
+
+  let saldoLinha = saldoAcum;
+  let rows = '';
+
+  // Linha de saldo anterior
+  if(saldoAcum !== 0){
+    rows += `<tr style="background:#f0f8ff">
+      <td colspan="2" style="font-size:11px;color:#666;padding:8px">Saldo anterior</td>
+      <td></td><td></td>
+      <td style="font-weight:700;color:#185FA5;text-align:right">${fmtBRL(saldoAcum)}</td>
+      <td></td>
+    </tr>`;
+  }
+
+  movsDoMes.forEach(m=>{
+    const entrada = ehEntrada(m.tipo);
+    const val = parseFloat(m.valor);
+    saldoLinha += entrada ? val : -val;
+    const saldoColor = saldoLinha>=0?'#1D9E75':'#E24B4A';
+    const tipoLabel = {
+      entrada:'⬆️ Entrada', saida:'⬇️ Saída',
+      saldo_inicial:'💰 Saldo inicial', aplicacao:'📈 Aplicação', resgate:'📉 Resgate'
+    }[m.tipo]||m.tipo;
+    const catLabel = {
+      venda:'Recebimento', despesa:'Despesa', investimento:'Investimento',
+      cartao:'Cartão', transferencia:'Transferência', outros:'Outros'
+    }[m.categoria]||m.categoria||'';
+
+    rows += `<tr>
+      <td style="font-size:12px">${fmtD(m.data)}</td>
+      <td>
+        <div style="font-weight:600;font-size:13px">${m.descricao}</div>
+        <div style="font-size:11px;color:#888">${tipoLabel}${catLabel?' · '+catLabel:''}${m.obs?' — '+m.obs:''}</div>
+      </td>
+      <td style="text-align:right;color:#1D9E75;font-weight:600">${entrada?fmtBRL(val):'—'}</td>
+      <td style="text-align:right;color:#E24B4A;font-weight:600">${!entrada?fmtBRL(val):'—'}</td>
+      <td style="text-align:right;font-weight:700;color:${saldoColor}">${fmtBRL(saldoLinha)}</td>
+      <td><button class="bd" style="font-size:10px" onclick="delCaixa('${m.id}')">✕</button></td>
+    </tr>`;
+  });
+
+  // Linha de saldo final do mês
+  rows += `<tr style="background:#f0faf5;font-weight:700">
+    <td colspan="2" style="padding:8px">Saldo em ${mesFiltro}</td>
+    <td style="text-align:right;color:#1D9E75">${fmtBRL(entradasMes)}</td>
+    <td style="text-align:right;color:#E24B4A">${fmtBRL(saidasMes)}</td>
+    <td style="text-align:right;color:${saldoLinha>=0?'#1D9E75':'#E24B4A'}">${fmtBRL(saldoLinha)}</td>
+    <td></td>
+  </tr>`;
+
+  el.innerHTML = `<div class="tbl-wrap"><table class="dt">
+    <thead><tr>
+      <th>Data</th><th>Descrição</th>
+      <th style="text-align:right">Entrada</th>
+      <th style="text-align:right">Saída</th>
+      <th style="text-align:right">Saldo</th>
+      <th></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+}
+
+function ehEntrada(tipo){
+  return ['entrada','saldo_inicial','resgate'].includes(tipo);
+}
+
+function calcSaldoTotal(){
+  return caixaMovs.reduce((s,m)=> s + (ehEntrada(m.tipo)?parseFloat(m.valor):-parseFloat(m.valor)), 0);
+}
+
+// Lançar entrada no caixa automaticamente ao dar baixa em venda/fatura
+async function lancarEntradaCaixa(descricao, valor, data, referenciaId, categoria){
+  const{data:rd,error} = await db.from('caixa').insert([{
+    tipo:'entrada', data, valor, descricao,
+    categoria: categoria||'venda',
+    referencia_id: referenciaId||null,
+    conta:'C6 Bank'
+  }]).select();
+  if(!error && rd) caixaMovs.push(rd[0]);
+}
+
+// ── BAIXA TOTAL DE FATURA COM DATA + CAIXA ────────────────────────────────
+
+async function baixarFaturaCompleta(ftId){
+  const ft = faturas.find(f=>f.id===ftId);
+  if(!ft) return;
+
+  // Modal pedindo data
+  const hoje = new Date().toISOString().split('T')[0];
+  const dataInp = prompt('Data do recebimento (AAAA-MM-DD):', hoje);
+  if(!dataInp) return;
+  // Validar formato
+  if(!dataInp.match(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)){alert('Data inválida. Use o formato AAAA-MM-DD.');return;}
+
+  if(!confirm('Dar baixa em TODAS as vendas da fatura '+ft.ref+'? Isso marcará todas as vendas vinculadas como PAGAS.')) return;
+
+  const{data:fvs} = await db.from('fatura_vendas').select('venda_id').eq('fatura_id',ftId);
+  if(!fvs?.length){ alert('Nenhuma venda vinculada.'); return; }
+
+  const obs = 'Baixa via fatura '+ft.ref+' em '+fmtD(dataInp);
+  const ids = fvs.map(f=>f.venda_id);
+
+  const{error} = await db.from('vendas').update({status:'pago', obs}).in('id',ids);
+  if(error){ alert('Erro: '+error.message); return; }
+
+  ids.forEach(id=>{
+    const idx=vendas.findIndex(v=>v.id===id);
+    if(idx>=0) vendas[idx]={...vendas[idx],status:'pago',obs};
+  });
+
+  await db.from('faturas').update({status:'pago'}).eq('id',ftId);
+  const fi=faturas.findIndex(f=>f.id===ftId);
+  if(fi>=0) faturas[fi]={...faturas[fi],status:'pago'};
+
+  // Lançar no caixa automaticamente
+  const cl = clientes.find(c=>c.id===ft.cliente_id);
+  await lancarEntradaCaixa(
+    'Fatura '+ft.ref+(cl?' — '+cl.nome:''),
+    ft.total, dataInp, ftId, 'venda'
+  );
+
+  showAlert('ft-alert','✅ Fatura '+ft.ref+' baixada e lançada no caixa! '+ids.length+' venda(s) pagas.','s');
+  renderFaturas();
+  atualizaDash();
+}
+
+// ── CORREÇÃO: VENDAS RETROATIVAS ──────────────────────────────────────────
+// O campo 'mes' deve ser preservado ao editar — não recalculado pelo mês atual
+// salvarVenda já tem isso pois usa o payload que inclui mes original
+// Mas precisamos garantir que ao editar, o mes vem do vencimento original ou do mes salvo
+
 
 checkSession();
 </script>
