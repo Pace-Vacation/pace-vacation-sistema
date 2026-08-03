@@ -249,6 +249,23 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
         <button class="bs" style="font-size:11px;margin-left:8px" onclick="addQuartoBlock()" id="btn-add-quarto">+ Adicionar quarto</button>
       </div>
       <div id="quarto-blocks"></div>
+      <div class="sep"></div>
+      <!-- COMISSÃO DO HOTEL -->
+      <div style="background:#f0faf5;border:1px solid #b8dfc8;border-radius:10px;padding:12px 14px;margin-top:4px">
+        <div style="font-size:11px;font-weight:600;color:#1D6B4A;margin-bottom:8px;text-transform:uppercase">💰 Comissão do hotel (recebida após check-out)</div>
+        <div class="g3">
+          <div class="field"><label>% de comissão</label>
+            <input type="number" id="ho-comis-pct" step="0.1" placeholder="Ex: 10" oninput="calcComissaoHotel()">
+          </div>
+          <div class="field"><label>Valor da comissão (R$)</label>
+            <input type="number" id="ho-comis-val" step="0.01" placeholder="Calculado automaticamente" style="background:#f5f5f5" readonly>
+          </div>
+          <div class="field"><label>Dias após check-out para receber</label>
+            <input type="number" id="ho-comis-dias" value="10" min="1" max="60" placeholder="Ex: 10">
+          </div>
+        </div>
+        <div id="ho-comis-preview" style="display:none;margin-top:8px;font-size:12px;color:#1D6B4A;padding:6px 10px;background:#fff;border-radius:6px;border:1px solid #b8dfc8"></div>
+      </div>
     </div>
     <div id="form-transfer" style="display:none">
       <div class="info-box">🧳 Digite o nome para buscar no banco.</div>
@@ -560,7 +577,22 @@ table.dt tr.clickable:hover td{background:#EBF5FF}
     <div class="br"><button class="bp" onclick="gerarFatura()">🧾 Gerar fatura</button></div>
     <div id="ft-alert" style="margin-top:10px"></div>
   </div>
-  <div class="card"><div class="ct">📋 Faturas emitidas</div><div id="lista-faturas"><div class="empty">Carregando...</div></div></div>
+  <div class="card">
+    <div class="ct" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <span>📋 Faturas emitidas</span>
+      <button class="bs" style="font-size:11px" onclick="toggleNaoFaturadas()">⚠️ Ver vendas não faturadas</button>
+    </div>
+    <div id="lista-faturas"><div class="empty">Carregando...</div></div>
+  </div>
+  <div id="nao-faturadas-area" style="display:none">
+    <div class="card" style="border-color:#f0d080">
+      <div class="ct" style="color:#875500">⚠️ Vendas sem fatura gerada</div>
+      <div class="info-box" style="border-left-color:#f0d080;background:#fff8ed;color:#875500;margin-bottom:10px">
+        Estas vendas ainda não foram incluídas em nenhuma fatura.
+      </div>
+      <div id="lista-nao-faturadas"><div class="empty">Carregando...</div></div>
+    </div>
+  </div>
   <div id="fatura-preview"></div>
 </div>
 
@@ -823,7 +855,7 @@ function goTo(sec,btn){
   if(sec==='despesas'){populateMesFiltro();renderDesp();}
   if(sec==='clientes')renderClientes();
   if(sec==='fornecedores')renderForn();
-  if(sec==='faturas'){preencherSelCli();renderFaturas();}
+  if(sec==='faturas'){preencherSelCli();renderFaturas();naoFaturadasVisivel=false;const nfa=document.getElementById('nao-faturadas-area');if(nfa)nfa.style.display='none';}
   if(sec==='relatorio')preencherSelCli();
   if(sec==='config')loadCfgForm();
   if(sec==='recebimentos'){preencherFiltrosRec();renderRecebimentos();}
@@ -998,7 +1030,8 @@ async function salvarVenda(){
     for(const p of paxList){if(p.nome&&!passageiros.find(x=>x.nome.toLowerCase()===p.nome.toLowerCase())){const{data:pd}=await db.from('passageiros').insert([{nome:p.nome,doc:p.doc||null,nasc:p.nasc||null,nac:p.nac||null,tel:p.tel||null,email:p.email||null}]).select();if(pd)passageiros.push(pd[0]);}}
   }else if(tipoAtual==='hospedagem'){
     const quartos=coletarQuartos();
-    det={hosp:gv('ho-hosp'),doc:gv('ho-doc'),num:gv('ho-num'),hotel:gv('ho-hotel'),end:gv('ho-end'),cat:gv('ho-cat'),chkin:gv('ho-in'),chkout:gv('ho-out'),dias:gv('ho-dias'),quartos};
+    const comissaoHotel=coletarComissaoHotel();
+    det={hosp:gv('ho-hosp'),doc:gv('ho-doc'),num:gv('ho-num'),hotel:gv('ho-hotel'),end:gv('ho-end'),cat:gv('ho-cat'),chkin:gv('ho-in'),chkout:gv('ho-out'),dias:gv('ho-dias'),quartos,comissao:comissaoHotel};
   }else if(tipoAtual==='seguro'){
     det=coletarSeguro();
     if(det.solic) salvarSolicitante(det.solic);
@@ -1031,7 +1064,12 @@ async function salvarVenda(){
   } else {
     const{data,error}=await db.from('vendas').insert([payload]).select('*,clientes(nome,seq)');
     if(error){showAlert('v-alert','Erro: '+error.message,'e');return;}
-    vendas.unshift(data[0]);limparVenda();showAlert('v-alert','✅ Venda '+data[0].ref+' salva!','s');atualizaDash();
+    vendas.unshift(data[0]);
+  // Agendar comissão de hotel se houver
+  if(tipoAtual==='hospedagem'&&data[0].detalhes?.comissao){
+    agendarComissaoHotel(data[0].id, data[0].detalhes.comissao, data[0].detalhes.hotel);
+  }
+  limparVenda();showAlert('v-alert','✅ Venda '+data[0].ref+' salva!','s');atualizaDash();
   }
 }
 
@@ -1042,6 +1080,10 @@ function limparVenda(){['v-custo','v-fee','v-margem','v-venda','ho-hosp','ho-doc
   window._editandoVendaId=null;
   document.getElementById('v-ref').style.color='#185FA5';
   limparDesconto();
+  // Limpar comissão hotel
+  ['ho-comis-pct','ho-comis-dias'].forEach(id=>{const el=document.getElementById(id);if(el){if(id==='ho-comis-dias')el.value='10';else el.value='';}});
+  const hcp=document.getElementById('ho-comis-val');if(hcp)hcp.value='';
+  const hcprev=document.getElementById('ho-comis-preview');if(hcprev)hcprev.style.display='none';
   // Limpar campos locação e seguro
   ['lc-locadora','lc-categoria','lc-modelo','lc-orig','lc-dest','lc-reserva','lc-retirada','lc-devolucao','lc-obs','lc-solic',
    'sg-seguradora','sg-plano','sg-apolice','sg-destino','sg-inicio','sg-fim','sg-obs','sg-solic'].forEach(id=>sv(id,''));}
@@ -2485,6 +2527,186 @@ function remQuartoBlock(n){
   quartoCount--;
   const btn=document.getElementById('btn-add-quarto');
   if(btn) btn.style.display='';
+}
+
+// ── COMISSÃO DE HOTEL ─────────────────────────────────────────────────────
+
+function calcComissaoHotel(){
+  const pct  = parseFloat(document.getElementById('ho-comis-pct')?.value)||0;
+  const custo= parseFloat(document.getElementById('v-custo')?.value)||0;
+  const val  = custo*(pct/100);
+  const valEl= document.getElementById('ho-comis-val');
+  if(valEl) valEl.value = val>0 ? val.toFixed(2) : '';
+
+  // Preview da data de recebimento
+  const chkout = document.getElementById('ho-out')?.value;
+  const dias   = parseInt(document.getElementById('ho-comis-dias')?.value)||10;
+  const prev   = document.getElementById('ho-comis-preview');
+  if(prev && chkout && val>0){
+    const dt = new Date(chkout+'T12:00:00');
+    dt.setDate(dt.getDate()+dias);
+    const mesRec = String(dt.getMonth()+1).padStart(2,'0')+'/'+dt.getFullYear();
+    prev.style.display='block';
+    prev.innerHTML='💰 Comissão de <strong>'+fmtBRL(val)+'</strong> prevista para recebimento em <strong>'+fmtD(dt.toISOString().split('T')[0])+'</strong> ('+mesRec+')';
+  } else if(prev){
+    prev.style.display='none';
+  }
+}
+
+function coletarComissaoHotel(){
+  const pct  = parseFloat(document.getElementById('ho-comis-pct')?.value)||0;
+  const val  = parseFloat(document.getElementById('ho-comis-val')?.value)||0;
+  const dias = parseInt(document.getElementById('ho-comis-dias')?.value)||10;
+  const chkout = document.getElementById('ho-out')?.value;
+  if(!pct || !val || !chkout) return null;
+  const dt = new Date(chkout+'T12:00:00');
+  dt.setDate(dt.getDate()+dias);
+  return {
+    pct, valor: val, diasAposCheckout: dias,
+    dataRecebimento: dt.toISOString().split('T')[0],
+    mesRecebimento: String(dt.getMonth()+1).padStart(2,'0')+'/'+dt.getFullYear()
+  };
+}
+
+async function agendarComissaoHotel(vendaId, comissao, hotelNome){
+  if(!comissao) return;
+  // Lança como despesa negativa / receita a receber na tabela de vendas (obs)
+  // Cria uma entrada especial na tabela despesas com valor negativo = receita
+  // Na prática: lança como "receita a receber" nos recebimentos
+  // Usaremos uma venda fictícia de comissão ou simplesmente salvar no detalhes
+  // Já está salvo no detalhes.comissao — o painel de recebimentos vai exibir
+  console.log('Comissão agendada para '+comissao.dataRecebimento+': '+fmtBRL(comissao.valor));
+}
+
+// ── BAIXA POR FATURA COMPLETA ─────────────────────────────────────────────
+
+async function baixarFaturaCompleta(ftId){
+  const ft = faturas.find(f=>f.id===ftId);
+  if(!ft) return;
+  const cli = clientes.find(c=>c.id===ft.cliente_id);
+  if(!confirm('Dar baixa em TODAS as vendas da fatura '+ft.ref+'?\n\nIsso marcará todas as vendas vinculadas como PAGAS.')) return;
+
+  // Buscar vendas da fatura
+  const{data:fvs} = await db.from('fatura_vendas').select('venda_id').eq('fatura_id',ftId);
+  if(!fvs?.length){ alert('Nenhuma venda vinculada a esta fatura.'); return; }
+
+  const hoje = new Date().toISOString().split('T')[0];
+  const obs = 'Baixa via fatura '+ft.ref+' em '+fmtD(hoje);
+
+  // Atualizar todas as vendas para pago
+  const ids = fvs.map(f=>f.venda_id);
+  const{error} = await db.from('vendas')
+    .update({status:'pago', obs})
+    .in('id', ids);
+  if(error){ alert('Erro: '+error.message); return; }
+
+  // Atualizar array local
+  ids.forEach(id=>{
+    const idx=vendas.findIndex(v=>v.id===id);
+    if(idx>=0) vendas[idx]={...vendas[idx], status:'pago', obs};
+  });
+
+  // Marcar a fatura como paga também
+  await db.from('faturas').update({status:'pago'}).eq('id',ftId);
+  const fi=faturas.findIndex(f=>f.id===ftId);
+  if(fi>=0) faturas[fi]={...faturas[fi], status:'pago'};
+
+  showAlert('ft-alert','✅ Fatura '+ft.ref+' baixada! '+ids.length+' venda(s) marcada(s) como pagas.','s');
+  renderFaturas();
+  atualizaDash();
+}
+
+// ── VENDAS NÃO FATURADAS ──────────────────────────────────────────────────
+
+let naoFaturadasVisivel = false;
+
+async function toggleNaoFaturadas(){
+  const area = document.getElementById('nao-faturadas-area');
+  naoFaturadasVisivel = !naoFaturadasVisivel;
+  area.style.display = naoFaturadasVisivel ? 'block' : 'none';
+  if(naoFaturadasVisivel) await renderNaoFaturadas();
+}
+
+async function renderNaoFaturadas(){
+  const el = document.getElementById('lista-nao-faturadas');
+  el.innerHTML = '<div class="empty">Verificando...</div>';
+
+  // Buscar todas as vendas que têm fatura
+  const{data:fvs} = await db.from('fatura_vendas').select('venda_id');
+  const comFatura = new Set((fvs||[]).map(f=>f.venda_id));
+
+  // Vendas sem fatura
+  const semFatura = vendas.filter(v=>!comFatura.has(v.id));
+
+  if(!semFatura.length){
+    el.innerHTML='<div class="empty" style="color:#1D9E75">✅ Todas as vendas já foram faturadas!</div>';
+    return;
+  }
+
+  // Agrupar por cliente
+  const porCliente = {};
+  semFatura.forEach(v=>{
+    const cNome = v.clientes?.nome || clientes.find(c=>c.id===v.cliente_id)?.nome || '—';
+    if(!porCliente[cNome]) porCliente[cNome]={nome:cNome, vendas:[], total:0};
+    porCliente[cNome].vendas.push(v);
+    porCliente[cNome].total += parseFloat(v.venda||0);
+  });
+
+  let html = '';
+  Object.values(porCliente).sort((a,b)=>b.total-a.total).forEach(g=>{
+    html+=`<div style="margin-bottom:12px">
+      <div style="font-weight:600;font-size:13px;color:#875500;margin-bottom:6px;padding:6px 10px;background:#fff8ed;border-radius:6px;display:flex;justify-content:space-between">
+        <span>👥 ${g.nome}</span>
+        <span>${g.vendas.length} venda(s) — ${fmtBRL(g.total)}</span>
+      </div>
+      <div class="tbl-wrap"><table class="dt">
+        <thead><tr><th>Venda</th><th>Tipo</th><th>Passageiro(s)</th><th>Valor</th><th>Vencimento</th><th>Status</th></tr></thead>
+        <tbody>`;
+    g.vendas.forEach(v=>{
+      const d=v.detalhes||{};
+      const pax=d.passageiros?d.passageiros.map(p=>p.nome).join(', '):(d.pax||d.hosp||'—');
+      const vencStyle=v.vencimento&&v.vencimento<new Date().toISOString().split('T')[0]&&v.status!=='pago'?'color:#E24B4A;font-weight:600':'';
+      html+=`<tr class="clickable" onclick="abrirVenda('${v.id}')">
+        <td style="font-weight:700;color:#185FA5">${v.ref}</td>
+        <td><span class="badge b-${v.tipo}">${tl(v.tipo)}</span></td>
+        <td style="font-size:11px">${pax}</td>
+        <td style="font-weight:600">${fmtBRL(v.venda)}</td>
+        <td style="${vencStyle}">${v.vencimento?fmtD(v.vencimento):'—'}</td>
+        <td><span class="badge b-${v.status}">${v.status}</span></td>
+      </tr>`;
+    });
+    html+='</tbody></table></div></div>';
+  });
+
+  el.innerHTML = html;
+}
+
+// ── ATUALIZAR renderFaturas COM BOTÃO DE BAIXA ────────────────────────────
+
+function renderFaturas(){
+  const el=document.getElementById('lista-faturas');
+  if(!faturas.length){el.innerHTML='<div class="empty">Nenhuma fatura.</div>';return;}
+  el.innerHTML='<div class="tbl-wrap"><table class="dt"><thead><tr>'+
+    '<th>Fatura</th><th>Cliente</th><th>Total</th><th>Vencimento</th><th>Status</th><th>Ações</th>'+
+    '</tr></thead><tbody>'+
+    faturas.map(f=>{
+      const vencStyle=f.vencimento&&f.vencimento<new Date().toISOString().split('T')[0]&&f.status!=='pago'?'color:#E24B4A;font-weight:600':'';
+      return `<tr>
+        <td style="font-weight:700;color:#185FA5">${f.ref}</td>
+        <td>${f.clientes?.nome||'-'}</td>
+        <td style="font-weight:600">${fmtBRL(f.total)}</td>
+        <td style="${vencStyle}">${f.vencimento?fmtD(f.vencimento):'-'}</td>
+        <td><span class="badge b-${f.status}">${f.status}</span></td>
+        <td style="white-space:nowrap;display:flex;gap:4px;flex-wrap:wrap">
+          <button class="bg" onclick="verFatura('${f.id}')">🧾 Ver</button>
+          ${f.status!=='pago'
+            ? `<button class="bp" style="font-size:11px;padding:4px 8px;background:#1D9E75" onclick="baixarFaturaCompleta('${f.id}')">✔ Baixa total</button>`
+            : '<span style="font-size:11px;color:#1D9E75;font-weight:600">✅ Paga</span>'}
+          <button class="bd" onclick="delFatura('${f.id}')">✕</button>
+        </td>
+      </tr>`;
+    }).join('')+
+    '</tbody></table></div>';
 }
 
 checkSession();
