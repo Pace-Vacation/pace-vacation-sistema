@@ -1178,7 +1178,63 @@ async function delPax(id){if(!confirm('Remover passageiro?'))return;await db.fro
 
 // Clientes
 async function salvarCliente(){const nome=gv('cl-nome'),doc=gv('cl-doc');if(!nome||!doc){showAlert('cl-alert','Preencha nome e CPF/CNPJ.','i');return;}const seq=String(clientes.length+1).padStart(6,'0');const{data,error}=await db.from('clientes').insert([{seq,nome,doc,ac:gv('cl-ac')||null,email:gv('cl-email')||null,tel:gv('cl-tel')||null,insc:gv('cl-insc')||null,endereco:gv('cl-end')||null,bairro:gv('cl-bairro')||null,cidade:gv('cl-cidade')||null,cep:gv('cl-cep')||null,praca:gv('cl-praca')||null}]).select();if(error){showAlert('cl-alert','Erro: '+error.message,'e');return;}clientes.push(data[0]);['cl-nome','cl-doc','cl-ac','cl-email','cl-tel','cl-insc','cl-end','cl-bairro','cl-cidade','cl-cep','cl-praca'].forEach(id=>sv(id,''));showAlert('cl-alert','Cliente cadastrado!','s');renderClientes();preencherSelCli();}
-function renderClientes(){const el=document.getElementById('lista-cl');if(!clientes.length){el.innerHTML='<div class="empty">Nenhum cliente.</div>';return;}el.innerHTML='<div class="tbl-wrap"><table class="dt"><thead><tr><th>Cód.</th><th>Nome</th><th>CNPJ/CPF</th><th>A/C</th><th>Cidade</th><th></th></tr></thead><tbody>'+clientes.map(c=>'<tr><td>'+c.seq+'</td><td>'+c.nome+'</td><td>'+c.doc+'</td><td>'+(c.ac||'-')+'</td><td>'+(c.cidade||'-')+'</td><td><button class="bd" onclick="delCliente(\''+c.id+'\')">✕</button></td></tr>').join('')+'</tbody></table></div>';}
+function renderClientes(){
+  const el=document.getElementById('lista-cl');
+  if(!clientes.length){el.innerHTML='<div class="empty">Nenhum cliente.</div>';return;}
+  let rows='';
+  clientes.forEach(c=>{
+    rows+=`<tr id="crow-${c.id}">
+      <td>${c.seq||''}</td>
+      <td style="font-weight:600">${c.nome}</td>
+      <td>${c.doc}</td>
+      <td>${c.ac||'—'}</td>
+      <td style="font-size:11px">${c.email||'—'}</td>
+      <td style="font-size:11px">${c.tel||'—'}</td>
+      <td>${c.cidade||'—'}</td>
+      <td style="white-space:nowrap">
+        <button class="be" onclick="editarCliente('${c.id}')">✏ Editar</button>
+        <button class="bd" onclick="delCliente('${c.id}')">✕</button>
+      </td>
+    </tr>`;
+  });
+  el.innerHTML='<div class="tbl-wrap"><table class="dt"><thead><tr>'+
+    '<th>Cód.</th><th>Nome</th><th>CNPJ/CPF</th><th>A/C</th><th>E-mail</th><th>Telefone</th><th>Cidade</th><th>Ações</th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+
+function editarCliente(id){
+  const c=clientes.find(x=>x.id===id);if(!c)return;
+  const row=document.getElementById('crow-'+id);if(!row)return;
+  row.innerHTML=
+    '<td>'+c.seq+'</td>'+
+    '<td><input type="text" id="ecl-nome-'+id+'" value="'+(c.nome||'').replace(/"/g,'&quot;')+'" style="min-width:140px"></td>'+
+    '<td><input type="text" id="ecl-doc-'+id+'"  value="'+(c.doc||'')+'" style="min-width:110px"></td>'+
+    '<td><input type="text" id="ecl-ac-'+id+'"   value="'+(c.ac||'')+'"  style="min-width:100px"></td>'+
+    '<td><input type="email" id="ecl-email-'+id+'" value="'+(c.email||'')+'" style="min-width:140px"></td>'+
+    '<td><input type="text" id="ecl-tel-'+id+'"  value="'+(c.tel||'')+'"   style="min-width:100px"></td>'+
+    '<td><input type="text" id="ecl-cidade-'+id+'" value="'+(c.cidade||'')+'" style="min-width:100px"></td>'+
+    '<td style="white-space:nowrap">'+
+      '<button class="bg" data-id="'+id+'" onclick="salvarEdicaoCliente(this.dataset.id)">✔</button> '+
+      '<button class="bs" style="font-size:11px;padding:3px 7px" onclick="renderClientes()">✕</button>'+
+    '</td>';
+}
+
+async function salvarEdicaoCliente(id){
+  const nome  =document.getElementById('ecl-nome-'+id)?.value.trim();
+  const doc   =document.getElementById('ecl-doc-'+id)?.value.trim();
+  const ac    =document.getElementById('ecl-ac-'+id)?.value.trim()||null;
+  const email =document.getElementById('ecl-email-'+id)?.value.trim()||null;
+  const tel   =document.getElementById('ecl-tel-'+id)?.value.trim()||null;
+  const cidade=document.getElementById('ecl-cidade-'+id)?.value.trim()||null;
+  if(!nome||!doc){showAlert('cl-alert','Preencha pelo menos nome e CPF/CNPJ.','i');return;}
+  const{error}=await db.from('clientes').update({nome,doc,ac,email,tel,cidade}).eq('id',id);
+  if(error){showAlert('cl-alert','Erro: '+error.message,'e');return;}
+  const idx=clientes.findIndex(c=>c.id===id);
+  if(idx>=0) clientes[idx]={...clientes[idx],nome,doc,ac,email,tel,cidade};
+  showAlert('cl-alert','✅ Cliente atualizado!','s');
+  renderClientes();preencherSelCli();
+}
+
 async function delCliente(id){if(!confirm('Remover?'))return;await db.from('clientes').delete().eq('id',id);clientes=clientes.filter(c=>c.id!==id);renderClientes();preencherSelCli();}
 function preencherSelCli(){['v-cli','ft-cli','r-cli'].forEach(sid=>{const sel=document.getElementById(sid);if(!sel)return;sel.innerHTML=(sid==='r-cli'?'<option value="">Todos</option>':'<option value="">Selecione...</option>')+clientes.map(c=>'<option value="'+c.id+'">'+(c.seq||'')+' – '+c.nome+'</option>').join('');});}
 
