@@ -2364,7 +2364,8 @@ function listaMeses(de, ate){
   let [yDe,mDe]= de.split('-').map(Number);
   let [yAte,mAte]= ate.split('-').map(Number);
   while(yDe < yAte || (yDe===yAte && mDe<=mAte)){
-    meses.push({ano:yDe, mes:mDe, key: yDe+'-'+String(mDe).padStart(2,'0'), label: MESES[mDe-1]+' '+yDe});
+    // key em formato MM/YYYY — igual ao usado em distribuirParcelas e venda.mes
+    meses.push({ano:yDe, mes:mDe, key: String(mDe).padStart(2,'0')+'/'+yDe, label: MESES[mDe-1]+' '+yDe});
     mDe++;
     if(mDe>12){mDe=1;yDe++;}
   }
@@ -2517,7 +2518,7 @@ async function gerarRelLucro(){
   (todasDesp||[]).forEach(d=>{
     if(!d.data)return;
     const dt = new Date(d.data+'T12:00:00');
-    const mesKey = dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');
+    const mesKey = String(dt.getMonth()+1).padStart(2,'0')+'/'+dt.getFullYear();
     if(mapaLuc[mesKey]) mapaLuc[mesKey].despesas += parseFloat(d.valor||0);
   });
 
@@ -3129,6 +3130,64 @@ async function baixarFaturaCompleta(ftId){
 // salvarVenda já tem isso pois usa o payload que inclui mes original
 // Mas precisamos garantir que ao editar, o mes vem do vencimento original ou do mes salvo
 
+
+async function exportarXLS(){
+  let q=db.from('vendas').select('*,clientes(nome)').order('created_at',{ascending:false});
+  const cId=gv('r-cli'),tipo=gv('r-tipo'),status=gv('r-status'),solic=gv('r-solic'),mesF=gv('r-mes');
+  if(cId) q=q.eq('cliente_id',cId);
+  if(tipo) q=q.eq('tipo',tipo);
+  if(status) q=q.eq('status',status);
+  if(mesF){const[y,m]=mesF.split('-');q=q.eq('mes',String(m).padStart(2,'0')+'/'+y);}
+  let{data:f}=await q;
+  if(solic&&f) f=f.filter(v=>{const d=v.detalhes||{};const vs=d.voos?d.voos[0]?.solic||'':d.solic||'';return vs.toLowerCase().includes(solic.toLowerCase());});
+  if(!f?.length){alert('Nenhuma venda encontrada.');return;}
+  const aliq=parseFloat(cfg.aliq||6)/100;
+  const headers=['Data','Nº Venda','Passageiro(s)','Solicitante','Cliente','Tipo','Rota/Produto','Custo Forn.','Fee','Margem','Fee+Margem','Preço Venda','Pagamento','Parcelas','Vencimento','Status','Simples %','Lucro Líq.','Obs'];
+  const rows=f.map(v=>{
+    const d=v.detalhes||{};
+    const pax=d.passageiros?d.passageiros.map(p=>p.nome).join(' / '):(d.pax||d.hosp||'');
+    const rota=d.voos?d.voos.map(vo=>(vo.orig||'')+'→'+(vo.dest||'')).join(' / '):(d.hotel||d.seguradora||d.locadora||d.tipo||'');
+    const sol=d.voos?d.voos[0]?.solic||'':d.solic||d.locacao?.solic||'';
+    const b=parseFloat(v.fee||0)+parseFloat(v.margem||0);
+    const imp=b*aliq;
+    const pgto=v.pgto_modalidade==='parcelado'?v.pgto+' '+v.pgto_parcelas+'x':v.pgto||'';
+    return[
+      new Date(v.created_at).toLocaleDateString('pt-BR'),
+      v.ref, pax, sol, v.clientes?.nome||'', tl(v.tipo), rota,
+      parseFloat(v.custo||0).toFixed(2), parseFloat(v.fee||0).toFixed(2), parseFloat(v.margem||0).toFixed(2),
+      b.toFixed(2), parseFloat(v.venda||0).toFixed(2), pgto, v.pgto_parcelas||1,
+      v.vencimento?new Date(v.vencimento+'T12:00:00').toLocaleDateString('pt-BR'):'',
+      v.status, imp.toFixed(2), (b-imp).toFixed(2), v.obs||''
+    ];
+  });
+  const totVenda=f.reduce((s,v)=>s+parseFloat(v.venda||0),0);
+  const totBase=f.reduce((s,v)=>s+parseFloat(v.fee||0)+parseFloat(v.margem||0),0);
+  const totImp=totBase*aliq;
+  let tableHTML='<table border="1" style="border-collapse:collapse">';
+  tableHTML+='<tr style="background:#185FA5;color:#fff">'+headers.map(h=>'<th style="padding:6px 10px;font-weight:bold">'+h+'</th>').join('')+'</tr>';
+  rows.forEach((row,ri)=>{
+    const bg=ri%2===0?'#ffffff':'#f5f8ff';
+    tableHTML+='<tr style="background:'+bg+'">'+row.map(cell=>'<td style="padding:4px 8px">'+cell+'</td>').join('')+'</tr>';
+  });
+  tableHTML+='<tr style="background:#EAF3DE;font-weight:bold"><td colspan="11" style="padding:4px 8px">TOTAL ('+f.length+' vendas)</td>'+
+    '<td style="padding:4px 8px">'+totVenda.toFixed(2)+'</td>'+
+    '<td colspan="4" style="padding:4px 8px"></td>'+
+    '<td style="padding:4px 8px">'+totImp.toFixed(2)+'</td>'+
+    '<td style="padding:4px 8px">'+(totBase-totImp).toFixed(2)+'</td>'+
+    '<td></td></tr>';
+  tableHTML+='</table>';
+  const blob=new Blob([
+    '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">'+
+    '<head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>'+
+    '<x:Name>Pace Vacation</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>'+
+    '</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>'+
+    '<body>'+tableHTML+'</body></html>'
+  ],{type:'application/vnd.ms-excel;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='pace_vacation_vendas.xls';
+  a.click();
+}
 
 checkSession();
 </script>
