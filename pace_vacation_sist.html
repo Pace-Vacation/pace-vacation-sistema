@@ -1078,7 +1078,16 @@ function coletarPax(){const list=[];for(let i=1;i<=9;i++){const nome=document.ge
 function coletarVoos(){const list=[];for(let i=1;i<=3;i++){const cia=document.getElementById('vcia-'+i)?.value.trim();const orig=document.getElementById('vorig-'+i)?.value.trim();if(!cia&&!orig)continue;list.push({cia:cia||'',num:document.getElementById('vnum-'+i)?.value.trim()||'',classe:document.getElementById('vclasse-'+i)?.value||'',orig:orig||'',dest:document.getElementById('vdest-'+i)?.value.trim()||'',bag:document.getElementById('vbag-'+i)?.value||'',ida:document.getElementById('vida-'+i)?.value||'',chg:document.getElementById('vchg-'+i)?.value||'',pnr:document.getElementById('vpnr-'+i)?.value.trim()||'',bilhete:document.getElementById('vbil-'+i)?.value.trim()||'',solic:document.getElementById('vsolic-'+i)?.value.trim()||'',custo:parseFloat(document.getElementById('vcusto-'+i)?.value)||0});}return list;}
 
 // Numeração
-function gerarNumVenda(){const n=vendas.length+1;sv('v-ref','VD'+String(n).padStart(7,'0'));}
+async function gerarNumVenda(){
+  // Busca o último número direto do banco — evita conflito se houver vendas fora do array local
+  const{data}=await db.from('vendas').select('ref').order('created_at',{ascending:false}).limit(1);
+  let n=1;
+  if(data&&data[0]&&data[0].ref){
+    const last=parseInt(data[0].ref.replace('VD',''))||0;
+    n=last+1;
+  }
+  sv('v-ref','VD'+String(n).padStart(7,'0'));
+}
 async function proximoNumFatura(){const{data}=await db.from('faturas').select('ref').order('created_at',{ascending:false}).limit(1);if(!data||!data[0])return'FT0000001';const last=parseInt(data[0].ref.replace('FT',''))||0;return'FT'+String(last+1).padStart(7,'0');}
 
 // Parcelamento
