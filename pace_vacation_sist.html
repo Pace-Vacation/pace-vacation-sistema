@@ -1141,7 +1141,16 @@ async function salvarVenda(){
   const fornVencFatura=gv('v-forn-venc')||null;
   const descInfo = getDescontoInfo();
   if(descInfo) det.desconto = descInfo;
-  const payload={ref:gv('v-ref'),cliente_id:cidId,tipo:tipoAtual,custo:custoVal,fee,margem:mg,venda,pgto:gv('v-pgto'),pgto_modalidade:modoParc,pgto_parcelas:modoParc==='parcelado'?numParc:1,pgto_valor_parcela:modoParc==='parcelado'?(venda/numParc):venda,status:gv('v-status'),vencimento:gv('v-venc')||null,obs:gv('v-obs')||null,mes,detalhes:det,forn_cartao_id:fornCartaoId,forn_parcelas:fornParcelas,forn_valor_parcela:fornCartaoId?(custoVal/fornParcelas):0,forn_venc_fatura:fornVencFatura};
+  // Sempre buscar o próximo número do banco na hora de salvar — evita conflito de ref duplicado
+  let refVenda = gv('v-ref');
+  if(!window._editandoVendaId){
+    const{data:lastV}=await db.from('vendas').select('ref').order('created_at',{ascending:false}).limit(1);
+    let nv=1;
+    if(lastV&&lastV[0]&&lastV[0].ref) nv=(parseInt(lastV[0].ref.replace('VD',''))||0)+1;
+    refVenda='VD'+String(nv).padStart(7,'0');
+    sv('v-ref', refVenda);
+  }
+  const payload={ref:refVenda,cliente_id:cidId,tipo:tipoAtual,custo:custoVal,fee,margem:mg,venda,pgto:gv('v-pgto'),pgto_modalidade:modoParc,pgto_parcelas:modoParc==='parcelado'?numParc:1,pgto_valor_parcela:modoParc==='parcelado'?(venda/numParc):venda,status:gv('v-status'),vencimento:gv('v-venc')||null,obs:gv('v-obs')||null,mes,detalhes:det,forn_cartao_id:fornCartaoId,forn_parcelas:fornParcelas,forn_valor_parcela:fornCartaoId?(custoVal/fornParcelas):0,forn_venc_fatura:fornVencFatura};
 
   // Modo edição ou inserção
   if(window._editandoVendaId){
