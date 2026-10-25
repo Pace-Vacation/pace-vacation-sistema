@@ -2913,6 +2913,7 @@ function renderFaturas(){
         <td><span class="badge b-${f.status}">${f.status}</span></td>
         <td style="white-space:nowrap;display:flex;gap:4px;flex-wrap:wrap">
           <button class="bg" onclick="verFatura('${f.id}')">🧾 Ver</button>
+          <button class="bs" style="font-size:11px;padding:4px 8px" onclick="editarFatura('${f.id}')">✏ Editar</button>
           ${f.status!=='pago'
             ? `<button class="bp" style="font-size:11px;padding:4px 8px;background:#1D9E75" onclick="baixarFaturaCompleta('${f.id}')">✔ Baixa total</button>`
             : '<span style="font-size:11px;color:#1D9E75;font-weight:600">✅ Paga</span>'}
@@ -2921,6 +2922,92 @@ function renderFaturas(){
       </tr>`;
     }).join('')+
     '</tbody></table></div>';
+}
+
+// ── EDITAR FATURA ─────────────────────────────────────────────────────────
+async function editarFatura(ftId){
+  const ft = faturas.find(f=>f.id===ftId);
+  if(!ft) return;
+
+  // Buscar vendas já vinculadas
+  const{data:fvs} = await db.from('fatura_vendas').select('venda_id').eq('fatura_id',ftId);
+  const vinculadas = new Set((fvs||[]).map(f=>f.venda_id));
+
+  // Vendas do mesmo cliente (incluindo as já vinculadas)
+  const vendasCliente = vendas.filter(v=>v.cliente_id===ft.cliente_id);
+
+  // Montar modal
+  let html = `
+    <div id="modal-edit-fatura" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px">
+      <div style="background:#fff;border-radius:12px;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;padding:24px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <h3 style="margin:0;font-size:16px">✏ Editar Fatura ${ft.ref}</h3>
+          <button class="bd" onclick="document.getElementById('modal-edit-fatura').remove()">✕</button>
+        </div>
+        <p style="font-size:12px;color:#666;margin-bottom:12px">Marque as vendas que devem constar nesta fatura. Vendas já vinculadas aparecem marcadas.</p>
+        <div style="border:1px solid #eee;border-radius:8px;overflow:hidden;margin-bottom:16px">
+          <table class="dt" style="margin:0">
+            <thead><tr><th style="width:40px"></th><th>Ref</th><th>Passageiros</th><th>Rota</th><th>Valor</th><th>Status</th></tr></thead>
+            <tbody>`;
+
+  vendasCliente.forEach(v=>{
+    const checked = vinculadas.has(v.id) ? 'checked' : '';
+    const paxStr = (v.detalhes?.passageiros||[]).map(p=>p.nome?.split(' ')[0]).join(', ') || '-';
+    const vooStr = (v.detalhes?.voos||[]).map(vo=>(vo.orig||'')+(vo.dest?'→'+vo.dest:'')).join(' / ') || '-';
+    const rowStyle = vinculadas.has(v.id) ? 'background:#f0faf5' : '';
+    html += `<tr style="${rowStyle}">
+      <td><input type="checkbox" id="efv-${v.id}" ${checked} style="width:16px;height:16px;cursor:pointer"></td>
+      <td style="font-weight:700;color:#185FA5;font-size:12px">${v.ref}</td>
+      <td style="font-size:11px">${paxStr}</td>
+      <td style="font-size:11px">${vooStr}</td>
+      <td style="font-size:12px;font-weight:600">${fmtBRL(v.venda)}</td>
+      <td><span class="badge b-${v.status}" style="font-size:10px">${v.status}</span></td>
+    </tr>`;
+  });
+
+  html += `</tbody></table></div>
+        <div id="ef-alert" style="margin-bottom:8px"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="bs" onclick="document.getElementById('modal-edit-fatura').remove()">Cancelar</button>
+          <button class="bp" onclick="salvarEdicaoFatura('${ftId}')">💾 Salvar alterações</button>
+        </div>
+      </div>
+    </div>`;
+
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+async function salvarEdicaoFatura(ftId){
+  const ft = faturas.find(f=>f.id===ftId);
+  if(!ft) return;
+
+  // Vendas selecionadas no modal
+  const checkboxes = document.querySelectorAll('[id^="efv-"]');
+  const selecionadas = [...checkboxes].filter(c=>c.checked).map(c=>c.id.replace('efv-',''));
+
+  if(!selecionadas.length){
+    showAlert('ef-alert','Selecione pelo menos uma venda.','i');
+    return;
+  }
+
+  // Apagar vínculos antigos e recriar
+  const{error:delErr} = await db.from('fatura_vendas').delete().eq('fatura_id',ftId);
+  if(delErr){showAlert('ef-alert','Erro ao remover vínculos: '+delErr.message,'e');return;}
+
+  const{error:insErr} = await db.from('fatura_vendas').insert(selecionadas.map(vid=>({fatura_id:ftId,venda_id:vid})));
+  if(insErr){showAlert('ef-alert','Erro ao salvar vínculos: '+insErr.message,'e');return;}
+
+  // Recalcular total
+  const novoTotal = vendas.filter(v=>selecionadas.includes(v.id)).reduce((s,v)=>s+parseFloat(v.venda||0),0);
+  await db.from('faturas').update({total:novoTotal}).eq('id',ftId);
+
+  // Atualizar local
+  const fi = faturas.findIndex(f=>f.id===ftId);
+  if(fi>=0) faturas[fi]={...faturas[fi],total:novoTotal};
+
+  document.getElementById('modal-edit-fatura').remove();
+  renderFaturas();
+  showAlert('ft-alert',`✅ Fatura ${ft.ref} atualizada com ${selecionadas.length} venda(s). Novo total: ${fmtBRL(novoTotal)}`,'s');
 }
 
 // ── MÓDULO CAIXA ──────────────────────────────────────────────────────────
