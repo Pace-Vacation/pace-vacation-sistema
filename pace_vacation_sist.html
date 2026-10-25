@@ -1079,6 +1079,8 @@ function coletarVoos(){const list=[];for(let i=1;i<=3;i++){const cia=document.ge
 
 // Numeração
 async function gerarNumVenda(){
+  // Não sobrescreve o número se estiver editando uma venda existente
+  if(window._editandoVendaId) return;
   // Busca todos os refs para pegar o MAIOR número — evita conflito com registros fora de ordem por created_at
   const{data}=await db.from('vendas').select('ref');
   let n=1;
