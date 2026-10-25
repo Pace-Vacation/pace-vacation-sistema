@@ -1079,12 +1079,12 @@ function coletarVoos(){const list=[];for(let i=1;i<=3;i++){const cia=document.ge
 
 // Numeração
 async function gerarNumVenda(){
-  // Busca o último número direto do banco — evita conflito se houver vendas fora do array local
-  const{data}=await db.from('vendas').select('ref').order('created_at',{ascending:false}).limit(1);
+  // Busca todos os refs para pegar o MAIOR número — evita conflito com registros fora de ordem por created_at
+  const{data}=await db.from('vendas').select('ref');
   let n=1;
-  if(data&&data[0]&&data[0].ref){
-    const last=parseInt(data[0].ref.replace('VD',''))||0;
-    n=last+1;
+  if(data&&data.length>0){
+    const maxRef=Math.max(...data.map(v=>parseInt((v.ref||'').replace(/\D/g,''))||0));
+    n=maxRef+1;
   }
   sv('v-ref','VD'+String(n).padStart(7,'0'));
 }
