@@ -1079,10 +1079,10 @@ function coletarVoos(){const list=[];for(let i=1;i<=3;i++){const cia=document.ge
 
 // Numeração
 async function gerarNumVenda(){
-  // Não sobrescreve o número se estiver editando uma venda existente
-  if(window._editandoVendaId) return;
   // Busca todos os refs para pegar o MAIOR número — evita conflito com registros fora de ordem por created_at
   const{data}=await db.from('vendas').select('ref');
+  // Checa APÓS o await — se entrou em modo edição enquanto aguardava, não sobrescreve
+  if(window._editandoVendaId) return;
   let n=1;
   if(data&&data.length>0){
     const maxRef=Math.max(...data.map(v=>parseInt((v.ref||'').replace(/\D/g,''))||0));
@@ -1653,6 +1653,9 @@ function editarVendaCompleta(id){
   const v=vendas.find(x=>x.id===id);if(!v)return;
   const d=v.detalhes||{};
 
+  // Marcar edição ANTES de qualquer preenchimento para bloquear gerarNumVenda async
+  window._editandoVendaId = id;
+
   // Setar tipo
   setTipo(v.tipo, document.querySelector('.tab.active'));
   document.querySelectorAll('.tab').forEach(b=>{
@@ -1734,8 +1737,6 @@ function editarVendaCompleta(id){
     sv('tr-dest',d.dest||'');sv('tr-data',d.data||'');sv('tr-num',d.num||'1');
   }
 
-  // Marcar que é edição (para sobrescrever em vez de inserir)
-  window._editandoVendaId = id;
   document.getElementById('v-ref').style.color='#BA7517';
   showAlert('v-alert','✏ Editando venda '+v.ref+'. Faça as alterações e clique em Salvar venda.','i');
   window.scrollTo(0,0);
