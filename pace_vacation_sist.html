@@ -1630,7 +1630,7 @@ function abrirVenda(id){
   document.getElementById('modal-venda').classList.add('open');
 }
 
-function fecharModal(){document.getElementById('modal-venda').classList.remove('open');}
+function fecharModal(){document.getElementById('modal-venda').classList.remove('open');window._editandoVendaId=null;}
 document.addEventListener('DOMContentLoaded',function(){
   const mv=document.getElementById('modal-venda');
   if(mv)mv.addEventListener('click',function(e){if(e.target===this)fecharModal();});
